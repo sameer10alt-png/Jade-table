@@ -6,7 +6,7 @@ const KEY = process.env.ASK_API_KEY ?? '';
 // Defaults to Google Gemini Flash via its OpenAI-compatible endpoint — set ASK_API_KEY to a
 // Gemini key (aistudio.google.com/apikey) and nothing else. Override BASE/MODEL for any other provider.
 const BASE = (process.env.ASK_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai').replace(/\/$/, '');
-const MODEL = process.env.ASK_MODEL ?? 'gemini-2.5-flash';
+const MODEL = process.env.ASK_MODEL ?? 'gemini-flash-latest';
 
 const SYSTEM = `You are the Jade Table mahjong assistant: a friendly, concise mahjong tutor.
 Jade Table offers three variants: Taiwanese 16-tile (LRC house scoring, round minimums East 20 / South 22 / West 24 / North 26, flowers, big point hands), Japanese Riichi (yaku, dora, riichi, furiten), and Bombay Traditional (jokers, flowers, a Goulash passing round).
@@ -48,7 +48,7 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 		const r = await fetch(`${BASE}/chat/completions`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json', authorization: `Bearer ${KEY}` },
-			body: JSON.stringify({ model: MODEL, messages: [{ role: 'system', content: SYSTEM }, ...clean], max_tokens: 500, temperature: 0.3 })
+			body: JSON.stringify({ model: MODEL, messages: [{ role: 'system', content: SYSTEM }, ...clean], max_tokens: 2000 })
 		});
 		if (!r.ok) {
 			console.error('ask upstream', r.status, (await r.text()).slice(0, 200));
