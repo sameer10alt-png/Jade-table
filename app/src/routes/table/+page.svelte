@@ -5,8 +5,21 @@
 	import GameTable from '#lib/components/GameTable.svelte';
 	import GameReview from '#lib/components/GameReview.svelte';
 	import type { GameReviewData, MoveReview } from '#lib/components/GameReview.svelte';
-	import { botAction, reviewDiscard } from '#lib/engine/bots.ts';
+	import DiagnosticReportView from '#lib/components/DiagnosticReport.svelte';
+	import RatingToast from '#lib/components/RatingToast.svelte';
+	import { botAction, botActionAt, reviewDiscard } from '#lib/engine/bots.ts';
 	import { applyAction, legal, newGame, pendingSeats } from '#lib/engine/game.ts';
+	import {
+		ASSESS_HANDS,
+		buildDiagnostic,
+		emptyHand,
+		loadAssess,
+		saveAssess,
+		type AssessState,
+		type DiagnosticReport
+	} from '#lib/diagnostics.ts';
+	import { outcomesOf } from '#lib/ranks.ts';
+	import { account, loadAccount } from '#lib/online/account.svelte.ts';
 	import type { Action, GameState } from '#lib/engine/types.ts';
 	import { clearGame, DEFAULT_PREFS, loadGame, loadPrefs, saveGame, savePrefs, type Prefs } from '#lib/storage.ts';
 
@@ -22,6 +35,99 @@
 	let discardCount = $state(0);
 	let showReview = $state(false);
 	let reviewData = $state<GameReviewData | null>(null);
+
+	// ---- practice assessment (3 hands, then a full diagnostic) and points ----
+	let assess = $state<AssessState | null>(null);
+	let report = $state<DiagnosticReport | null>(null);
+	let toast = $state<{ delta: number; rating: number; rank: string } | null>(null);
+	/** hands already handled (rating / assessment), so each counts once */
+	const handled = new Set<string>();
+	/** you let the bot play your seat this hand: it doesn't count */
+	let botPlayedThisHand = false;
+
+	function trackMove(g: GameState, action: Action) {
+		if (!assess) return;
+		const cur = assess.cur;
+		if (action.t === 'discard' && g.phase === 'turn') {
+			const r = reviewDiscard(g, ME, action.tile);
+			if (r) {
+				cur.discards.push({
+					grade: r.grade,
+					chosenK: r.chosenK,
+					bestK: r.bestK,
+					reason: r.reason,
+					shAfter: r.shAfter,
+					lostOuts: r.lostOuts,
+					dealtIn: r.dealtIn,
+					oppReady: r.oppReady
+				});
+				if (r.shAfter <= 0 && cur.readyAt === null) cur.readyAt = cur.discards.length;
+			}
+		} else if (g.phase === 'claim' && legal(g, ME).claims.length) {
+			const kind = (a: Action) => (a.t === 'claim' ? (a.option.type === 'win' ? 'win' : 'claim') : 'pass');
+			if (action.t === 'claim' || action.t === 'pass') {
+				cur.claims.push({ mine: kind(action), best: kind(botActionAt(g, ME, 'expert')) });
+			}
+		}
+		saveAssess(assess);
+	}
+
+	async function handEnded(g: GameState) {
+		const key = `${g.opts.seed}:${g.handNo}`;
+		if (handled.has(key) || !g.result) return;
+		handled.add(key);
+		const skip = botPlayedThisHand || autoplay;
+		botPlayedThisHand = false;
+		if (skip) {
+			if (assess) {
+				assess.cur = { ...emptyHand() };
+				saveAssess(assess);
+			}
+			return;
+		}
+		const outcome = outcomesOf(g.result, g.players.length)[ME];
+		if (assess && !assess.counted.includes(g.handNo)) {
+			assess.cur.outcome = outcome;
+			assess.cur.scoreDelta = g.result.deltas[ME] ?? 0;
+			assess.hands.push(assess.cur);
+			assess.counted.push(g.handNo);
+			assess.cur = emptyHand();
+			if (assess.hands.length >= ASSESS_HANDS) {
+				report = buildDiagnostic(assess);
+				const done = report;
+				saveAssess(null);
+				assess = null;
+				if (account.user)
+					fetch('/api/progress/diagnostic', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ report: done })
+					}).catch(() => {});
+			} else saveAssess(assess);
+		}
+		// points: signed-in players earn them in bot games too (worth less than online)
+		if (account.user) {
+			try {
+				const r = await fetch('/api/progress/hand', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ outcome, key, opponents: g.players.slice(1).map((p) => p.bot ?? 'intermediate') })
+				});
+				const d = await r.json();
+				if (r.ok && typeof d.delta === 'number') toast = { delta: d.delta, rating: d.after, rank: d.rank };
+			} catch {
+				/* offline: no points this hand */
+			}
+		}
+	}
+
+	$effect(() => {
+		const g = game;
+		if (g?.phase === 'ended') handEnded(g);
+	});
+	$effect(() => {
+		if (autoplay) botPlayedThisHand = true;
+	});
 
 	const RANK: Record<string, number> = { blunder: 0, mistake: 1, amazing: 2, great: 3, inaccuracy: 4, good: 5, best: 6 };
 
@@ -84,9 +190,17 @@
 	onMount(() => {
 		prefs = loadPrefs();
 		prefsLoaded = true;
+		loadAccount();
 		const g = loadGame();
 		if (!g) goto('/');
-		else game = g;
+		else {
+			game = g;
+			const a = loadAssess();
+			// the assessment belongs to this game only
+			if (a && a.started === g.opts.seed) assess = a;
+			// hands finished before a refresh were already counted
+			if (g.phase === 'ended') handled.add(`${g.opts.seed}:${g.handNo}`);
+		}
 	});
 
 	function act(seat: number, action: Action) {
@@ -97,6 +211,7 @@
 				myDiscards.push({ state: structuredClone(game), tile: action.tile, handNo: game.handNo });
 				discardCount = myDiscards.length;
 			}
+			if (seat === ME && !autoplay) trackMove(game, action);
 			game = applyAction(game, seat, action);
 			error = '';
 		} catch (e) {
@@ -171,9 +286,31 @@
 	{#if showReview && reviewData}
 		<GameReview data={reviewData} onClose={() => (showReview = false)} />
 	{/if}
+	{#if assess}
+		<div class="assess-pill">Assessment · hand {Math.min(assess.hands.length + 1, ASSESS_HANDS)} of {ASSESS_HANDS}</div>
+	{/if}
+	{#if report}
+		<DiagnosticReportView {report} onClose={() => (report = null)} />
+	{/if}
+	{#if toast}
+		<RatingToast {...toast} onDone={() => (toast = null)} />
+	{/if}
 {/if}
 
 <style>
+	.assess-pill {
+		position: fixed;
+		top: 10px;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 54;
+		font: 600 0.8rem var(--font);
+		color: var(--accent-ink);
+		background: var(--accent);
+		border-radius: 999px;
+		padding: 5px 12px;
+		pointer-events: none;
+	}
 	.review-fab {
 		position: fixed;
 		left: 50%;

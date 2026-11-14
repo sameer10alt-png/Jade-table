@@ -44,23 +44,23 @@
 	});
 </script>
 
-<svelte:head><title>{APP_NAME} · Play mahjong online</title></svelte:head>
+<svelte:head><title>{APP_NAME} · Mahjong, played your way</title></svelte:head>
 
 <main class="wrap">
 	<section class="hero">
-		<p class="kicker">Pull up a chair</p>
-		<h1>Which mahjong do you <em>play</em>?</h1>
-		<p class="lede">Three games, one table. Play against bots at your own pace. Pick yours and switch any time.</p>
+		<p class="kicker">Shuffle up</p>
+		<h1>Pick your game. <em>Climb the ranks.</em></h1>
+		<p class="lede">Taiwanese, Riichi or Bombay. Every hand earns points, every game gets reviewed, and a coach answers your questions.</p>
 		<div class="hero-cta">
 			<a class="btn primary" href="/online">Play online</a>
-			<a class="btn" href="#games">Pick a game</a>
+			<a class="btn" href="/practice">Test my skills</a>
 		</div>
 	</section>
 
 	<section class="quick">
 		<span class="qtext">
 			<strong>Quick match</strong>
-			<small>Play with whoever's online now. Bots fill in after 30 seconds.</small>
+			<small>Matched in seconds. Empty seats get filled so you never wait long.</small>
 		</span>
 		<span class="qbtns">
 			{#each cards as c (c.id)}
@@ -75,7 +75,7 @@
 	{#if saved}
 		<a class="resume" href="/table">
 			<span>
-				<strong>Your table is still open</strong>
+				<strong>You left a game going</strong>
 				<small>{VARIANTS[saved.opts.variant].name} · {WIND_NAMES[saved.round]} round, hand {saved.handNo}</small>
 			</span>
 			<span class="btn primary">Rejoin</span>
@@ -127,23 +127,23 @@
 	<a class="online" href="/online">
 		<span>
 			<strong>Play online</strong>
-			<small>Quick match with other players, or start a table for friends. Bots fill any empty seats.</small>
+			<small>Jump into a match, or make a private table and send the code to friends.</small>
 		</span>
 		<span class="btn dark">Play online →</span>
 	</a>
 
 	<section class="how">
 		<div>
-			<h3>Always a full table</h3>
-			<p>Three bots fill the seats, from gentle beginners to sharp experts. Every bot is clearly labelled.</p>
+			<h3>Points that mean something</h3>
+			<p>Win a hand to gain points, deal in and you drop. Climb from Bamboo to Jade Master.</p>
 		</div>
 		<div>
-			<h3>Learn as you play</h3>
-			<p>Turn on hints to see how many tiles you are from a win, which tiles you're waiting on, and a suggested discard.</p>
+			<h3>A report card after every game</h3>
+			<p>Each discard is graded from Brilliant to Blunder, with what to try next time.</p>
 		</div>
 		<div>
-			<h3>Every point explained</h3>
-			<p>Each win comes with a full scoring breakdown, so you learn the patterns that make big hands.</p>
+			<h3>Know your weak spots</h3>
+			<p>Three practice hands against the bot give you a skill breakdown and a plan to improve.</p>
 		</div>
 	</section>
 </main>

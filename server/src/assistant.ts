@@ -1,12 +1,36 @@
 // "Ask the table" — an LLM mahjong assistant. The API key lives only here, as a Railway env
 // var (ASK_API_KEY); the browser never sees it. Works with any OpenAI-compatible chat API.
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { accountsEnabled, currentUser } from './accounts';
+
+/** questions per account per day (protects the monthly bill) */
+const DAILY_LIMIT = 80;
+const daily = new Map<number, { day: string; n: number }>();
+
+export const SPAM_REPLY =
+	"That message looks like spam, so I didn't send it to the coach. Ask a real mahjong question, for example: “When should I fold?” or “How is a Taiwanese hand scored?”";
+
+/** Cheap checks so junk never reaches (or costs) the AI. Returns a reason, or null if fine. */
+export function spamReason(text: string, previous: string[]): string | null {
+	const t = text.trim();
+	const letters = t.replace(/[^\p{L}\p{M}]/gu, '');
+	if (letters.length < 2) return 'empty';
+	if (/(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|ru|xyz|io|ly|gg)\b)/i.test(t)) return 'link';
+	if (/(.)\1{5,}/u.test(t)) return 'repeated characters';
+	if (/\b(\w{2,})(\s+\1\b){3,}/iu.test(t)) return 'repeated words';
+	if (/[bcdfghjklmnpqrstvwxz]{7,}/i.test(t)) return 'keyboard mash';
+	if (t.split(/\s+/).some((w) => w.length > 40)) return 'long word';
+	if (letters.length / t.replace(/\s/g, '').length < 0.45) return 'symbols';
+	const norm = (x: string) => x.toLowerCase().replace(/\s+/g, ' ').trim();
+	if (previous.filter((p) => norm(p) === norm(t)).length >= 1) return 'duplicate';
+	return null;
+}
 
 const KEY = process.env.ASK_API_KEY ?? '';
 // Defaults to Google Gemini Flash via its OpenAI-compatible endpoint — set ASK_API_KEY to a
 // Gemini key (aistudio.google.com/apikey) and nothing else. Override BASE/MODEL for any other provider.
 const BASE = (process.env.ASK_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai').replace(/\/$/, '');
-const MODEL = process.env.ASK_MODEL ?? 'gemini-flash-latest';
+const MODEL = process.env.ASK_MODEL ?? 'gemini-flash-latest'; // auto-follows Google's newest Flash
 
 const SYSTEM = `You are the Jade Table mahjong assistant: a friendly, concise mahjong tutor.
 Jade Table offers three variants: Taiwanese 16-tile (LRC house scoring, round minimums East 20 / South 22 / West 24 / North 26, flowers, big point hands), Japanese Riichi (yaku, dora, riichi, furiten), and Bombay Traditional (jokers, flowers, a Goulash passing round).
@@ -23,9 +47,17 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 		return true;
 	};
 
-	if (url.pathname === '/api/ask/status') return json(200, { enabled: assistantEnabled() });
+	if (url.pathname === '/api/ask/status')
+		return json(200, { enabled: assistantEnabled(), needsAccount: true });
 	if (url.pathname !== '/api/ask' || req.method !== 'POST') return false;
 	if (!KEY) return json(503, { error: 'The assistant is not set up yet.' });
+	// signed-in players only
+	const user = accountsEnabled() ? await currentUser(req) : null;
+	if (!user) return json(401, { error: 'Sign up or sign in to use the coach.', needSignIn: true });
+	const today = new Date().toISOString().slice(0, 10);
+	const d = daily.get(user.id);
+	const used = d?.day === today ? d.n : 0;
+	if (used >= DAILY_LIMIT) return json(429, { error: 'You have reached today’s question limit. Come back tomorrow.' });
 
 	let body = '';
 	for await (const c of req) {
@@ -42,7 +74,13 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 		.filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
 		.slice(-12)
 		.map((m) => ({ role: m.role as 'user' | 'assistant', content: String(m.content).slice(0, 2000) }));
-	if (!clean.length) return json(400, { error: 'Ask a question first.' });
+	if (!clean.length || clean[clean.length - 1].role !== 'user') return json(400, { error: 'Ask a question first.' });
+	// every message is checked: spam gets a fixed reply and never reaches the AI
+	const q = clean[clean.length - 1].content;
+	const earlier = clean.slice(0, -1).filter((m) => m.role === 'user').slice(-3).map((m) => m.content);
+	const spam = spamReason(q, earlier);
+	if (spam) return json(200, { reply: SPAM_REPLY, spam: true });
+	daily.set(user.id, { day: today, n: used + 1 });
 
 	try {
 		const r = await fetch(`${BASE}/chat/completions`, {

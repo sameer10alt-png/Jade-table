@@ -16,6 +16,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { isTableCode, makeTableCode, type ServerMsg, type TableSettings } from '../../app/src/lib/online/protocol';
 import { accountPid, currentUser, getDb, handleAuth, initAccounts, SKILL_TO_LEVEL } from './accounts';
 import { handleAsk } from './assistant';
+import { handleProgress, migrateProgress, rateOnlineHand } from './progress';
 import { forgetMember, makeStore, myTables, rememberMember, type TableStore } from './storage';
 import { handleFriends } from './friends';
 import { handleNotifications, noteJoined } from './notifications';
@@ -59,6 +60,10 @@ class NodeTable implements Host {
 
 	async save(room: Room) {
 		await store.save(room);
+	}
+
+	async handEnded(room: Room) {
+		await rateOnlineHand(room);
 	}
 
 	async setAlarm(at: number | null) {
@@ -188,6 +193,7 @@ const server = createServer(async (req, res) => {
 			return res.end();
 		}
 		if (url.pathname === '/healthz') return sendJson(res, 200, { ok: true, tables: tables.size });
+		if (url.pathname.startsWith('/api/progress') && (await handleProgress(req, res, url))) return;
 		if ((url.pathname === '/api/ask' || url.pathname === '/api/ask/status') && (await handleAsk(req, res, url))) return;
 		if (
 			(url.pathname.startsWith('/auth/') ||
@@ -311,6 +317,7 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 await initAccounts();
+await migrateProgress();
 store = makeStore(DATA_DIR);
 
 server.listen(PORT, () => {

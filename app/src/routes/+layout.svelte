@@ -43,8 +43,10 @@
 				<a class="link" href="/" class:on={here('/')}>Play</a>
 				<a class="link" href="/online" class:on={here('/online')}>Online</a>
 				<a class="link" href="/rules/taiwanese" class:on={here('/rules')}>Rules</a>
-				<a class="link" href="/ask" class:on={here('/ask')}>Ask</a>
+				<a class="link" href="/practice" class:on={here('/practice')}>Practice</a>
+				<a class="link" href="/ask" class:on={here('/ask')}>Coach</a>
 				{#if account.user}
+					<a class="link" href="/progress" class:on={here('/progress')}>Progress</a>
 					<a class="link" href="/friends" class:on={here('/friends')}>Friends</a>
 					<Bell />
 					<a class="me desk" href="/account" title="Your account" aria-label="Your account">
@@ -70,7 +72,9 @@
 						<a href="/online" class:on={here('/online')}>Online</a>
 						{#if account.user}<a href="/friends" class:on={here('/friends')}>Friends</a>{/if}
 						<a href="/rules/taiwanese" class:on={here('/rules')}>Rules</a>
-						<a href="/ask" class:on={here('/ask')}>Ask</a>
+						<a href="/practice" class:on={here('/practice')}>Practice</a>
+						{#if account.user}<a href="/progress" class:on={here('/progress')}>Progress</a>{/if}
+						<a href="/ask" class:on={here('/ask')}>Coach</a>
 						<hr />
 						{#if account.user}
 							<a class="acct" href="/account" class:on={here('/account')}>
@@ -101,7 +105,7 @@
 
 {#if !bare}
 	<footer class="wrap foot">
-		<span>{APP_NAME} · Free to play. No real money, no wagering.</span>
+		<span>{APP_NAME} · Just for fun: points are for bragging rights only.</span>
 		<span class="links"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></span>
 	</footer>
 {/if}

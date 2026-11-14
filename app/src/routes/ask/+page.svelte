@@ -1,8 +1,11 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { page } from '$app/state';
 	import { APP_NAME } from '#lib/brand.ts';
+	import SignupGate from '#lib/components/SignupGate.svelte';
+	import { account, loadAccount } from '#lib/online/account.svelte.ts';
 
-	type Msg = { role: 'user' | 'assistant'; content: string };
+	type Msg = { role: 'user' | 'assistant'; content: string; ms?: number };
 	let messages = $state<Msg[]>([]);
 	let input = $state('');
 	let busy = $state(false);
@@ -10,11 +13,25 @@
 	let scroller: HTMLDivElement | undefined = $state();
 
 	const suggestions = [
-		'How does riichi work?',
-		'What’s a good opening discard?',
-		'How is a Taiwanese hand scored?',
-		'When should I call pung vs stay concealed?'
+		'Which tiles should I throw first in the opening?',
+		'How do I know when to stop attacking and fold?',
+		'How do I count my outs before a discard?',
+		'When should I call pung vs stay concealed?',
+		'What waits are best to aim for?',
+		'How is a Taiwanese hand scored?'
 	];
+
+	/** time spent waiting for the current answer (ms) */
+	let elapsed = $state(0);
+	const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
+
+	onMount(() => {
+		loadAccount().then(() => {
+			// a strategy question from a practice report: fill it in, ready to send
+			const q = page.url.searchParams.get('q');
+			if (q && account.user) input = q.slice(0, 300);
+		});
+	});
 
 	async function send(text?: string) {
 		const q = (text ?? input).trim();
@@ -23,20 +40,34 @@
 		messages = [...messages, { role: 'user', content: q }];
 		input = '';
 		busy = true;
+		elapsed = 0;
+		const t0 = performance.now();
+		const tickTimer = setInterval(() => (elapsed = performance.now() - t0), 100);
 		await tick();
 		scroller?.scrollTo({ top: scroller.scrollHeight });
 		try {
 			const r = await fetch('/api/ask', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ messages })
+				body: JSON.stringify({ messages: messages.map(({ role, content }) => ({ role, content })) })
 			});
-			const d = (await r.json()) as { reply?: string; error?: string };
-			if (!r.ok) throw new Error(d.error ?? 'Something went wrong.');
-			messages = [...messages, { role: 'assistant', content: d.reply || '(no answer)' }];
+			const d = (await r.json()) as { reply?: string; error?: string; needSignIn?: boolean };
+			if (r.status === 401 && d.needSignIn) {
+				account.user = null;
+				messages = messages.slice(0, -1);
+				input = q;
+				return;
+			}
+			if (!r.ok) {
+				messages = messages.slice(0, -1);
+				input = q;
+				throw new Error(d.error ?? 'Something went wrong.');
+			}
+			messages = [...messages, { role: 'assistant', content: d.reply || '(no answer)', ms: performance.now() - t0 }];
 		} catch (e) {
 			error = (e as Error).message;
 		} finally {
+			clearInterval(tickTimer);
 			busy = false;
 			await tick();
 			scroller?.scrollTo({ top: scroller.scrollHeight });
@@ -44,18 +75,26 @@
 	}
 </script>
 
-<svelte:head><title>Ask the table · {APP_NAME}</title></svelte:head>
+<svelte:head><title>Coach · {APP_NAME}</title></svelte:head>
 
 <main class="wrap">
-	<p class="kicker">Ask the table</p>
-	<h1>Mahjong questions, answered</h1>
-	<p class="lede">Rules, scoring, etiquette, strategy — ask anything about Taiwanese, Riichi or Bombay.</p>
+	<p class="kicker">Coach</p>
+	<h1>Your mahjong coach</h1>
+	<p class="lede">Stuck on a discard, a scoring rule or when to fold? Ask in plain words and get a straight answer.</p>
 
+	{#if account.loaded && !account.user}
+		<div class="gate">
+			<p class="gate-h">Sign up to use the coach</p>
+			<p class="gate-sub">It's free. One account per person keeps the coach fast for everyone.</p>
+			<SignupGate next="/ask" label="Start asking" />
+		</div>
+	{:else}
 	<div class="chat" bind:this={scroller}>
 		{#each messages as m, i (i)}
 			<div class="msg {m.role}">{m.content}</div>
+			{#if m.role === 'assistant' && m.ms !== undefined}<div class="took">Replied in {secs(m.ms)}</div>{/if}
 		{/each}
-		{#if busy}<div class="msg assistant typing">Thinking…</div>{/if}
+		{#if busy}<div class="msg assistant typing">Thinking… {secs(elapsed)}</div>{/if}
 		{#if !messages.length}
 			<div class="empty">
 				<p>Try one of these:</p>
@@ -72,10 +111,32 @@
 		<input bind:value={input} placeholder="Ask a mahjong question…" aria-label="Your question" />
 		<button class="btn primary" disabled={busy || !input.trim()}>Ask</button>
 	</form>
+	{/if}
 	<p class="fine">Answers are AI-generated and can be wrong — double-check anything important against the rules pages.</p>
 </main>
 
 <style>
+	.took {
+		align-self: flex-start;
+		margin-top: -6px;
+		font-size: 0.75rem;
+		color: var(--ink-2);
+		font-variant-numeric: tabular-nums;
+	}
+	.gate {
+		background: var(--bg-2);
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		padding: 20px;
+	}
+	.gate-h {
+		font-weight: 700;
+		margin: 0 0 4px;
+	}
+	.gate-sub {
+		color: var(--ink-2);
+		margin: 0 0 12px;
+	}
 	h1 {
 		margin: 6px 0 8px;
 		font-size: clamp(1.8rem, 4vw, 2.6rem);
