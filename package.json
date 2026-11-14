@@ -1,0 +1,12 @@
+{
+	"name": "jade-table",
+	"private": true,
+	"description": "Mahjong website + game server. On Railway: one service builds both and starts the Node server.",
+	"scripts": {
+		"build": "npm --prefix app ci --include=dev && npm --prefix app run build && npm --prefix server ci --include=dev && npm --prefix server run build:node",
+		"start": "node server/dist/node.mjs"
+	},
+	"engines": {
+		"node": "24.x"
+	}
+}

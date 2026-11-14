@@ -1,0 +1,30 @@
+{
+	"name": "jade-table-server",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "wrangler dev --port 8787 --ip 0.0.0.0",
+		"deploy": "wrangler deploy",
+		"build:node": "esbuild src/node.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=dist/node.mjs",
+		"start": "node dist/node.mjs",
+		"dev:node": "npm run build:node && node dist/node.mjs",
+		"check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^5.20261007.1",
+		"@electric-sql/pglite": "^0.5.10",
+		"@types/node": "^26.6.5",
+		"@types/pg": "^8.23.1",
+		"@types/ws": "^8.18.2",
+		"esbuild": "^0.28.2",
+		"typescript": "^7.0.2",
+		"wrangler": "^4.148.0"
+	},
+	"dependencies": {
+		"pg": "^8.23.1",
+		"ws": "^8.22.0"
+	},
+	"engines": {
+		"node": ">=22.17"
+	}
+}
