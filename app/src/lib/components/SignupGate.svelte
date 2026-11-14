@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { account, register, signIn } from '#lib/online/account.svelte.ts';
 
-	let { next = '/online' }: { next?: string } = $props();
+	let { next = '/online', label = 'Play online' }: { next?: string; label?: string } = $props();
 
 	let contact = $state('');
 	let username = $state('');
@@ -33,7 +33,7 @@
 </script>
 
 <section class="gate">
-	<p class="kicker">Play online</p>
+	<p class="kicker">{label}</p>
 	<h2>Create your free player</h2>
 	<p class="sub">One player per person. Add an email or phone and pick a username — no password, takes a few seconds.</p>
 
@@ -59,7 +59,7 @@
 
 	{#if error}<p class="err">{error}</p>{/if}
 
-	<button class="btn primary big" disabled={busy} onclick={submit}>{busy ? 'One moment…' : 'Play online'}</button>
+	<button class="btn primary big" disabled={busy} onclick={submit}>{busy ? 'One moment…' : label}</button>
 
 	{#if account.google}
 		<p class="or">or <button class="linkish" onclick={() => signIn(next)}>sign in with Google</button></p>

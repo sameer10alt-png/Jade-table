@@ -42,6 +42,8 @@ export interface Room {
 	quick?: boolean;
 	/** human-looking names to use for the bot seats (quick match), so filled seats read as people */
 	fillNames?: string[];
+	/** last hand that was rated, so each hand counts once */
+	ratedKey?: string;
 }
 
 /** One open connection to a player's browser. */
@@ -57,6 +59,8 @@ export interface Host {
 	save(room: Room): Promise<void>;
 	/** run TableCore.alarm() at this time (null = cancel) */
 	setAlarm(at: number | null): Promise<void>;
+	/** a hand just finished (once per hand): the host can rate it */
+	handEnded?(room: Room): Promise<void> | void;
 }
 
 // how long a person gets before the server plays for them
@@ -386,6 +390,18 @@ export class TableCore {
 	async changed() {
 		if (!this.room) return;
 		this.room.touched = Date.now();
+		const g = this.room.game;
+		if (g?.phase === 'ended' && g.result) {
+			const key = `${g.opts.seed}:${g.handNo}`;
+			if (this.room.ratedKey !== key) {
+				this.room.ratedKey = key;
+				try {
+					await this.host.handEnded?.(this.room);
+				} catch (e) {
+					console.error('rating failed', e);
+				}
+			}
+		}
 		await this.schedule();
 		await this.host.save(this.room);
 		this.broadcast();

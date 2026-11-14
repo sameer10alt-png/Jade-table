@@ -146,6 +146,7 @@ export interface DiscardReview {
 	shBest: number; // shanten after the best discard
 	lostOuts: number; // how many fewer improving tiles than best (0 if none)
 	dealtIn: boolean; // discard completed an opponent's ready hand (hindsight)
+	oppReady: boolean; // an opponent was ready when you discarded (hindsight)
 }
 
 /**
@@ -217,7 +218,7 @@ export function reviewDiscard(s: GameState, seat: number, chosenId: number): Dis
 		grade = 'good';
 		reason = 'Good — just off the top choice.';
 	}
-	return { chosenK: chosen.t.k, bestK: best.t.k, grade, reason, shAfter: chosen.sh, shBest: best.sh, lostOuts, dealtIn: chosen.dealsIn };
+	return { chosenK: chosen.t.k, bestK: best.t.k, grade, reason, shAfter: chosen.sh, shBest: best.sh, lostOuts, dealtIn: chosen.dealsIn, oppReady };
 }
 
 function openingIsWorthIt(s: GameState, seat: number, option: ClaimOption, level: BotLevel, before: number, after: number): boolean {
@@ -332,4 +333,12 @@ export function suggestDiscard(s: GameState, seat: number): number | null {
 	if (!L.discard.length) return null;
 	const ranked = rankDiscards(s, seat, L.discard, 'expert');
 	return ranked[0]?.tile.id ?? null;
+}
+
+/** What a bot of the given level would do here (used to grade the human's calls and passes). */
+export function botActionAt(s: GameState, seat: number, level: BotLevel): Action {
+	if (s.phase === 'claim') return decideClaim(s, seat, level);
+	if (s.phase === 'turn') return decideTurn(s, seat, level);
+	if (s.phase === 'passing') return decidePass(s, seat, level);
+	return { t: 'next' };
 }

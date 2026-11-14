@@ -80,8 +80,8 @@
 
 <main class="wrap">
 	<p class="kicker">Play online</p>
-	<h1>Pull up a chair</h1>
-	<p class="lede">Jump into a quick match with other players, or start a table and share its code with friends. Bots fill any empty seats.</p>
+	<h1>Find a game</h1>
+	<p class="lede">Get matched in seconds, or make a private table and share the code. Online hands count double for points.</p>
 
 	{#if account.loaded && account.enabled && !account.user}
 		<SignupGate next="/online" />
