@@ -10,6 +10,15 @@ const daily = new Map<number, { day: string; n: number }>();
 export const SPAM_REPLY =
 	"That message looks like spam, so I didn't pass it to the Dragon. Ask a real mahjong question, for example: “When should I fold?” or “How is a Taiwanese hand scored?”";
 
+export const CHAT_REPLY =
+	"I only answer mahjong questions. Try something like: “Which tile should I discard?” or “How do I score a Pung of dragons?”";
+
+/** mahjong words: a short message with one of these is a real question, not chatter */
+const MAHJONG_WORD =
+	/(mahjong|mah|jong|tile|tiles|pung|pong|kong|chow|chi|pon|kan|riichi|ron|tsumo|yaku|dora|han|fu|fan|fold|discard|wait|tenpai|ready|win|hand|score|scoring|point|dragon|wind|flower|season|bamboo|bam|dot|dots|circle|character|crack|joker|honou?r|terminal|pair|eye|meld|dealer|east|south|west|north|mcr|taiwan|taiwanese|bombay|international|furiten|mangan|limit|rule|rules|how|what|why|when|which|can|should|is|does|do)/i;
+/** pure filler that never needs the AI */
+const FILLER = /^(ha|he|hi|lol|lmao|rofl|boo+|ok(ay)?|k|yes|yeah|ye|yep|no|nope|nah|hmm+|wow|cool|nice|thanks?|thank you|ty|bye|hello|hey|sup|yo|test|testing|bruh|idk|what)[\s!.?]*$/i;
+
 /** Cheap checks so junk never reaches (or costs) the AI. Returns a reason, or null if fine. */
 export function spamReason(text: string, previous: string[]): string | null {
 	const t = text.trim();
@@ -23,6 +32,8 @@ export function spamReason(text: string, previous: string[]): string | null {
 	if (letters.length / t.replace(/\s/g, '').length < 0.45) return 'symbols';
 	const norm = (x: string) => x.toLowerCase().replace(/\s+/g, ' ').trim();
 	if (previous.filter((p) => norm(p) === norm(t)).length >= 1) return 'duplicate';
+	if (FILLER.test(t) || /^(ha|he|hi)+[\s!.?]*$/i.test(t)) return 'chatter';
+	if (t.split(/\s+/).length <= 3 && !t.includes('?') && !MAHJONG_WORD.test(t)) return 'chatter';
 	return null;
 }
 
@@ -79,7 +90,7 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 	const q = clean[clean.length - 1].content;
 	const earlier = clean.slice(0, -1).filter((m) => m.role === 'user').slice(-3).map((m) => m.content);
 	const spam = spamReason(q, earlier);
-	if (spam) return json(200, { reply: SPAM_REPLY, spam: true });
+	if (spam) return json(200, { reply: spam === 'chatter' ? CHAT_REPLY : SPAM_REPLY, spam: true });
 	daily.set(user.id, { day: today, n: used + 1 });
 
 	try {
