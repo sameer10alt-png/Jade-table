@@ -75,17 +75,17 @@
 	}
 </script>
 
-<svelte:head><title>Coach · {APP_NAME}</title></svelte:head>
+<svelte:head><title>The Dragon · {APP_NAME}</title></svelte:head>
 
 <main class="wrap">
-	<p class="kicker">Coach</p>
-	<h1>Your mahjong coach</h1>
+	<p class="kicker">Your mahjong coach</p>
+	<h1>Ask the Dragon</h1>
 	<p class="lede">Stuck on a discard, a scoring rule or when to fold? Ask in plain words and get a straight answer.</p>
 
 	{#if account.loaded && !account.user}
 		<div class="gate">
-			<p class="gate-h">Sign up to use the coach</p>
-			<p class="gate-sub">It's free. One account per person keeps the coach fast for everyone.</p>
+			<p class="gate-h">Sign up to talk to the Dragon</p>
+			<p class="gate-sub">It's free. One account per person keeps the Dragon fast for everyone.</p>
 			<SignupGate next="/ask" label="Start asking" />
 		</div>
 	{:else}

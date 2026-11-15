@@ -77,7 +77,7 @@
 		{/each}
 	{/if}
 
-	<div class="list-h">Strategy questions for your coach</div>
+	<div class="list-h">Strategy questions for the Dragon</div>
 	<div class="qs">
 		{#each report.questions as q (q)}
 			<a class="q" href={ask(q)}>{q}</a>
@@ -300,7 +300,7 @@
 		font-size: 0.88rem;
 	}
 	.q::after {
-		content: ' → Ask the coach';
+		content: ' → Ask the Dragon';
 		color: var(--pop);
 		font-weight: 600;
 	}

@@ -44,7 +44,7 @@
 				<a class="link" href="/online" class:on={here('/online')}>Online</a>
 				<a class="link" href="/rules/taiwanese" class:on={here('/rules')}>Rules</a>
 				<a class="link" href="/practice" class:on={here('/practice')}>Practice<span class="new">New</span></a>
-				<a class="link" href="/ask" class:on={here('/ask')}>Coach</a>
+				<a class="link" href="/ask" class:on={here('/ask')}>The Dragon</a>
 				{#if account.user}
 					<a class="link" href="/progress" class:on={here('/progress')}>Progress</a>
 					<a class="link" href="/friends" class:on={here('/friends')}>Friends</a>
@@ -74,7 +74,7 @@
 						<a href="/rules/taiwanese" class:on={here('/rules')}>Rules</a>
 						<a href="/practice" class:on={here('/practice')}>Practice <span class="new">New</span></a>
 						{#if account.user}<a href="/progress" class:on={here('/progress')}>Progress</a>{/if}
-						<a href="/ask" class:on={here('/ask')}>Coach</a>
+						<a href="/ask" class:on={here('/ask')}>The Dragon</a>
 						<hr />
 						{#if account.user}
 							<a class="acct" href="/account" class:on={here('/account')}>
