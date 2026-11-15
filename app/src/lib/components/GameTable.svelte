@@ -198,8 +198,8 @@
 	const fmt = (n: number) => (v?.riichi ? n.toLocaleString() : n > 0 ? `+${n}` : String(n));
 	const claimWord = (o: ClaimOption) => {
 		if (o.type === 'win') return v?.riichi ? 'Ron' : 'Mahjong';
-		if (o.type === 'pung') return v?.riichi ? 'Pon' : 'Pong';
-		if (o.type === 'kong') return v?.riichi ? 'Kan' : 'Gong';
+		if (o.type === 'pung') return v?.riichi ? 'Pon' : v?.id === 'international' ? 'Pung' : 'Pong';
+		if (o.type === 'kong') return v?.riichi ? 'Kan' : v?.id === 'international' ? 'Kong' : 'Gong';
 		return v?.riichi ? 'Chii' : v?.id === 'taiwanese' ? 'Sheung' : 'Chow';
 	};
 	const tileOf = (id: number) => me?.hand.find((t) => t.id === id);
