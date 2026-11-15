@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { account, register, signIn } from '#lib/online/account.svelte.ts';
 
-	let { next = '/online', label = 'Play online' }: { next?: string; label?: string } = $props();
+	let {
+		next = '/online',
+		label = 'Play online',
+		title = 'Create your free player'
+	}: { next?: string; label?: string; title?: string } = $props();
 
 	let contact = $state('');
 	let username = $state('');
@@ -34,8 +38,8 @@
 
 <section class="gate">
 	<p class="kicker">{label}</p>
-	<h2>Create your free player</h2>
-	<p class="sub">One player per person. No password, takes a few seconds.</p>
+	<h2>{title}</h2>
+	<p class="sub">One player per person. No password, takes a few seconds. Signed up before? Use the same email or phone and username.</p>
 
 	{#if account.google}
 		<button type="button" class="google" onclick={() => signIn(next)}>
@@ -47,7 +51,7 @@
 			</svg>
 			Continue with Google
 		</button>
-		<p class="or"><span>or use your email or phone</span></p>
+		<p class="or"><span>or use any email (Outlook, Yahoo…) or phone</span></p>
 	{/if}
 
 	<label>
