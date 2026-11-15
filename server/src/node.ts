@@ -321,7 +321,7 @@ await migrateProgress();
 store = makeStore(DATA_DIR);
 
 server.listen(PORT, () => {
-	console.log(`Jade Table server on http://localhost:${PORT}`);
+	console.log(`Pung Table server on http://localhost:${PORT}`);
 	console.log(`  website: ${STATIC_DIR ?? '(not served; set STATIC_DIR)'}`);
 	console.log(`  saving tables to: ${getDb() ? 'the database' : (DATA_DIR ?? 'memory only (set DATABASE_URL or DATA_DIR to survive restarts)')}`);
 });
