@@ -19,27 +19,60 @@
 		{ id: 'advanced', label: 'Advanced', note: 'Strong player' }
 	];
 
+	// step 2: the code we emailed
+	let step = $state<'details' | 'code'>('details');
+	let code = $state('');
+	let sentTo = $state('');
+	let devCode = $state('');
+
 	async function submit() {
 		error = '';
 		if (!contact.trim() || !username.trim()) {
-			error = 'Enter your email or phone and a username.';
+			error = 'Enter your email and a username.';
 			return;
 		}
 		busy = true;
 		try {
-			await register(contact.trim(), username.trim(), skill);
+			const r = await register(contact.trim(), username.trim(), skill);
+			if (r.needCode) {
+				step = 'code';
+				sentTo = r.sentTo ?? contact.trim();
+				devCode = r.devCode ?? '';
+				code = '';
+			}
 		} catch (e) {
 			error = (e as Error).message;
 		} finally {
 			busy = false;
 		}
 	}
+
+	async function confirm() {
+		error = '';
+		if (code.replace(/\D/g, '').length !== 6) {
+			error = 'Enter the 6-digit code from the email.';
+			return;
+		}
+		busy = true;
+		try {
+			await register(contact.trim(), username.trim(), skill, code.trim());
+		} catch (e) {
+			error = (e as Error).message;
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function resend() {
+		code = '';
+		await submit();
+	}
 </script>
 
 <section class="gate">
 	<p class="kicker">{label}</p>
 	<h2>{title}</h2>
-	<p class="sub">One player per person. No password, takes a few seconds. Signed up before? Use the same email or phone and username.</p>
+	<p class="sub">One player per person. No password: we email you a 6-digit code. Signed up before? Use the same email and username.</p>
 
 	{#if account.google}
 		<button type="button" class="google" onclick={() => signIn(next)}>
@@ -51,12 +84,39 @@
 			</svg>
 			Continue with Google
 		</button>
-		<p class="or"><span>or use any email (Outlook, Yahoo…) or phone</span></p>
+		<p class="or"><span>or use any email (Outlook, Yahoo, iCloud…)</span></p>
 	{/if}
 
+	{#if step === 'code'}
+		<div class="code-step">
+			<p class="sent">We emailed a 6-digit code to <b>{sentTo}</b>. Check spam if you don't see it.</p>
+			{#if devCode}<p class="fine">Test mode code: {devCode}</p>{/if}
+			<label>
+				<span>Code</span>
+				<!-- svelte-ignore a11y_autofocus -->
+				<input
+					class="code"
+					bind:value={code}
+					inputmode="numeric"
+					autocomplete="one-time-code"
+					maxlength="6"
+					placeholder="123456"
+					autofocus
+					onkeydown={(e) => e.key === 'Enter' && confirm()}
+				/>
+			</label>
+			{#if error}<p class="err">{error}</p>{/if}
+			<button class="btn primary big" disabled={busy} onclick={confirm}>{busy ? 'Checking…' : 'Confirm'}</button>
+			<p class="links">
+				<button type="button" class="link" disabled={busy} onclick={resend}>Send a new code</button>
+				·
+				<button type="button" class="link" onclick={() => ((step = 'details'), (error = ''))}>Change email</button>
+			</p>
+		</div>
+	{:else}
 	<label>
-		<span>Email or phone</span>
-		<input bind:value={contact} placeholder="you@email.com or +66 8 1234 5678" autocomplete="email" onkeydown={(e) => e.key === 'Enter' && submit()} />
+		<span>Email</span>
+		<input bind:value={contact} type="email" placeholder="you@email.com" autocomplete="email" onkeydown={(e) => e.key === 'Enter' && submit()} />
 	</label>
 	<label>
 		<span>Username</span>
@@ -76,13 +136,44 @@
 
 	{#if error}<p class="err">{error}</p>{/if}
 
-	<button class="btn primary big" disabled={busy} onclick={submit}>{busy ? 'One moment…' : label}</button>
+	<button class="btn primary big" disabled={busy} onclick={submit}>{busy ? 'Sending code…' : label}</button>
+	{/if}
 
 
-	<p class="fine">We use this to keep your games on any device and to keep it one player per person. We won't post anything or share it.</p>
+	<p class="fine">We use your email to keep your games on any device and to keep it one player per person. We won't post anything or share it.</p>
 </section>
 
 <style>
+	.code-step {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+	.sent {
+		margin: 6px 0 0;
+		color: var(--ink-2);
+	}
+	.code {
+		font-size: 1.6rem;
+		letter-spacing: 0.4em;
+		text-align: center;
+		font-variant-numeric: tabular-nums;
+	}
+	.links {
+		margin: 0;
+		text-align: center;
+		color: var(--ink-2);
+		font-size: 0.88rem;
+	}
+	.link {
+		border: 0;
+		background: none;
+		padding: 0;
+		color: var(--pop);
+		font: inherit;
+		font-weight: 600;
+		cursor: pointer;
+	}
 	.google {
 		display: flex;
 		align-items: center;

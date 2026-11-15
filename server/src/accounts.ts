@@ -7,7 +7,7 @@
 // - Our own session: a random token in an HttpOnly cookie. Only a SHA-256 hash of it is stored,
 //   so a leaked database can't be used to log in as anyone.
 // - Accounts are optional. Without DATABASE_URL / Google credentials the site works for guests.
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 export interface User {
@@ -78,6 +78,15 @@ async function migrate() {
 			expires_at timestamptz not null
 		)`);
 	await db!.query(`create index if not exists sessions_user on sessions(user_id)`);
+	// one-time email sign-in codes (only a hash is stored)
+	await db!.query(`
+		create table if not exists email_codes (
+			email text primary key,
+			code_hash text not null,
+			expires_at timestamptz not null,
+			attempts integer not null default 0,
+			sent_at timestamptz not null default now()
+		)`);
 	// tables live here too, so they survive deploys and can be listed per account
 	await db!.query(`
 		create table if not exists rooms (
@@ -230,14 +239,76 @@ export const SKILL_TO_LEVEL: Record<string, 'beginner' | 'intermediate' | 'exper
 const VALID_SKILLS = new Set(['beginner', 'intermediate', 'advanced']);
 const cleanSkill = (v: unknown) => (typeof v === 'string' && VALID_SKILLS.has(v) ? v : 'intermediate');
 
-/** Accept an email or a phone number; return a normalized form (or null) and which kind it is. */
-function normalizeContact(raw: string): { contact: string | null; kind: 'email' | 'phone' } {
-	const s = raw.trim();
-	if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s)) return { contact: s.toLowerCase(), kind: 'email' };
-	const compact = s.replace(/[^\d+]/g, '');
-	const digits = compact.replace(/\D/g, '');
-	if (digits.length >= 7 && digits.length <= 15) return { contact: compact.startsWith('+') ? compact : digits, kind: 'phone' };
-	return { contact: null, kind: 'email' };
+/** Accept an email address; return it normalized, or null. */
+function normalizeEmail(raw: string): string | null {
+	const s = raw.trim().toLowerCase();
+	return /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(s) && s.length <= 200 ? s : null;
+}
+
+// ---- email codes ----
+
+const RESEND_KEY = process.env.RESEND_API_KEY ?? '';
+const EMAIL_FROM = process.env.EMAIL_FROM ?? 'Pung Table <hello@pungtable.com>';
+const CODE_MINUTES = 10;
+const MAX_ATTEMPTS = 5;
+
+/** Codes are on when an email service is set up (or in local testing). */
+export const emailCodesEnabled = () => !!RESEND_KEY || FAKE_LOGIN;
+
+async function sendCodeEmail(to: string, code: string) {
+	const r = await fetch('https://api.resend.com/emails', {
+		method: 'POST',
+		headers: { authorization: `Bearer ${RESEND_KEY}`, 'content-type': 'application/json' },
+		body: JSON.stringify({
+			from: EMAIL_FROM,
+			to: [to],
+			subject: `${code} is your Pung Table code`,
+			text: `Your Pung Table sign-in code is ${code}\n\nIt works for ${CODE_MINUTES} minutes. If you didn't ask for it, ignore this email.`,
+			html: `<div style="font-family:system-ui,sans-serif;font-size:16px;color:#1f2430"><p>Your Pung Table sign-in code:</p><p style="font-size:32px;font-weight:700;letter-spacing:6px;margin:12px 0">${code}</p><p style="color:#666">It works for ${CODE_MINUTES} minutes. If you didn't ask for it, ignore this email.</p></div>`
+		})
+	});
+	if (!r.ok) throw new Error(`email send failed: ${r.status} ${(await r.text()).slice(0, 200)}`);
+}
+
+/** Make and send a fresh code. Returns the code only in local testing. */
+async function issueCode(email: string): Promise<{ ok: true; devCode?: string } | { ok: false; status: number; error: string }> {
+	const prev = await db!.query<{ sent_at: string }>(`select sent_at from email_codes where email = $1`, [email]);
+	if (prev.rows[0] && Date.now() - new Date(prev.rows[0].sent_at).getTime() < 45_000)
+		return { ok: false, status: 429, error: 'We just sent you a code. Check your inbox (and spam), or wait a minute to get a new one.' };
+	const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+	await db!.query(
+		`insert into email_codes (email, code_hash, expires_at, attempts, sent_at)
+		 values ($1, $2, now() + ($3 || ' minutes')::interval, 0, now())
+		 on conflict (email) do update set code_hash = excluded.code_hash, expires_at = excluded.expires_at, attempts = 0, sent_at = now()`,
+		[email, sha256(`${email}:${code}`), String(CODE_MINUTES)]
+	);
+	if (RESEND_KEY) {
+		try {
+			await sendCodeEmail(email, code);
+		} catch (e) {
+			console.error((e as Error).message);
+			return { ok: false, status: 502, error: "We couldn't send the email. Check the address and try again." };
+		}
+		return { ok: true };
+	}
+	return { ok: true, devCode: code }; // local testing only (FAKE_LOGIN)
+}
+
+async function checkCode(email: string, code: string): Promise<string | null> {
+	const { rows } = await db!.query<{ code_hash: string; expires_at: string; attempts: number }>(
+		`select code_hash, expires_at, attempts from email_codes where email = $1`,
+		[email]
+	);
+	const row = rows[0];
+	if (!row) return 'Ask for a code first.';
+	if (new Date(row.expires_at).getTime() < Date.now()) return 'That code has expired. Get a new one.';
+	if (row.attempts >= MAX_ATTEMPTS) return 'Too many wrong tries. Get a new code.';
+	if (row.code_hash !== sha256(`${email}:${code.replace(/\D/g, '')}`)) {
+		await db!.query(`update email_codes set attempts = attempts + 1 where email = $1`, [email]);
+		return 'That code is not right. Check the latest email we sent.';
+	}
+	await db!.query(`delete from email_codes where email = $1`, [email]);
+	return null;
 }
 
 // ---- HTTP routes: returns true when it handled the request ----
@@ -342,12 +413,16 @@ export async function handleAuth(req: IncomingMessage, res: ServerResponse, url:
 		return true;
 	}
 
-	// Lightweight signup/sign-in: email or phone + username, one per person. No password.
+	// Email sign-up / sign-in: email + username, confirmed with a 6-digit code we email.
+	// Step 1 (no code): check the details and send a code. Step 2 (with code): sign in.
 	if (url.pathname === '/api/register' && req.method === 'POST') {
 		if (!db) return json(503, { error: 'Accounts are not set up yet.' });
 		let body = '';
-		for await (const c of req) body += c;
-		let data: { contact?: string; username?: string; skill?: string };
+		for await (const c of req) {
+			body += c;
+			if (body.length > 4000) return json(413, { error: 'Too large.' });
+		}
+		let data: { contact?: string; username?: string; skill?: string; code?: string };
 		try {
 			data = JSON.parse(body || '{}');
 		} catch {
@@ -358,35 +433,61 @@ export async function handleAuth(req: IncomingMessage, res: ServerResponse, url:
 			.trim()
 			.slice(0, 16);
 		if (username.length < 2) return json(400, { error: 'Pick a username (at least 2 characters).' });
-		const { contact, kind } = normalizeContact(String(data.contact ?? ''));
-		if (!contact) return json(400, { error: 'Enter a valid email or phone number.' });
+		const email = normalizeEmail(String(data.contact ?? ''));
+		if (!email) return json(400, { error: 'Enter a valid email address.' });
 		const skill = cleanSkill(data.skill);
 
-		// Returning player: this contact is already registered.
-		const existing = await db.query<{ id: string; username: string | null }>(`select id, username from users where contact = $1`, [contact]);
-		if (existing.rows.length) {
-			const row = existing.rows[0];
-			if ((row.username ?? '').toLowerCase() === username.toLowerCase()) {
-				await db.query(`update users set skill = $1 where id = $2`, [skill, Number(row.id)]);
-				await startSession(req, res, Number(row.id));
+		// who is this? an email sign-up, or a Google player with this email
+		const existing = await db.query<{ id: string; username: string | null }>(`select id, username from users where contact = $1`, [email]);
+		const googleUser = existing.rows.length
+			? null
+			: (
+					await db.query<{ id: string }>(`select id from users where lower(email) = $1 and contact is null and google_sub is not null limit 1`, [
+						email
+					])
+				).rows[0];
+		if (existing.rows.length && (existing.rows[0].username ?? '').toLowerCase() !== username.toLowerCase())
+			return json(409, { error: 'That email is already registered. Sign in with the username you chose before.' });
+		if (!existing.rows.length) {
+			const taken = await db.query(`select 1 from users where lower(username) = lower($1)`, [username]);
+			if (taken.rows.length) return json(409, { error: 'That username is taken \u2014 try another.' });
+		}
+
+		const code = String(data.code ?? '').trim();
+		if (emailCodesEnabled() && !code) {
+			const sent = await issueCode(email);
+			if (!sent.ok) return json(sent.status, { error: sent.error });
+			return json(200, { needCode: true, sentTo: email, ...(sent.devCode ? { devCode: sent.devCode } : {}) });
+		}
+		if (emailCodesEnabled()) {
+			const bad = await checkCode(email, code);
+			if (bad) return json(400, { error: bad, needCode: true });
+		}
+
+		try {
+			if (existing.rows.length) {
+				const id = Number(existing.rows[0].id);
+				await db.query(`update users set skill = $1 where id = $2`, [skill, id]);
+				await startSession(req, res, id);
+				return json(200, { name: existing.rows[0].username ?? username, returning: true });
+			}
+			if (googleUser) {
+				// already plays with Google under this email: same player, now with a username too
+				const id = Number(googleUser.id);
+				await db.query(`update users set contact = $1, username = $2, skill = coalesce(skill, $3) where id = $4`, [email, username, skill, id]);
+				await startSession(req, res, id);
 				return json(200, { name: username, returning: true });
 			}
-			return json(409, { error: `That ${kind} is already registered. Sign in with the username you chose before.` });
-		}
-		// New player: make sure the username is free.
-		const taken = await db.query(`select 1 from users where lower(username) = lower($1)`, [username]);
-		if (taken.rows.length) return json(409, { error: 'That username is taken \u2014 try another.' });
-		try {
-			const { rows } = await db.query<{ id: string }>(`insert into users (name, username, contact, skill) values ($1, $2, $3, $4) returning id`, [
+			const { rows } = await db.query<{ id: string }>(`insert into users (name, username, contact, email, skill) values ($1, $2, $3, $3, $4) returning id`, [
 				username,
 				username,
-				contact,
+				email,
 				skill
 			]);
 			await startSession(req, res, Number(rows[0].id));
 			return json(200, { name: username, returning: false });
 		} catch (e) {
-			if ((e as { code?: string }).code === '23505') return json(409, { error: 'That username or contact is already taken.' });
+			if ((e as { code?: string }).code === '23505') return json(409, { error: 'That username or email is already taken.' });
 			console.error('register failed:', (e as Error).message);
 			return json(500, { error: 'Could not create your player. Try again.' });
 		}

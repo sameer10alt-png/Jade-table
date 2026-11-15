@@ -48,16 +48,28 @@ export async function signOut() {
 }
 
 /** Lightweight signup/sign-in: an email or phone + a username + self-rated skill. Throws with a message on failure. */
-export async function register(contact: string, username: string, skill: string): Promise<void> {
+/**
+ * Email sign-in. Without a code: checks the details and emails a 6-digit code
+ * (returns { needCode: true }). With the code: signs in (returns { needCode: false }).
+ */
+export async function register(
+	contact: string,
+	username: string,
+	skill: string,
+	code?: string
+): Promise<{ needCode: boolean; sentTo?: string; devCode?: string }> {
 	const r = await fetch('/api/register', {
 		method: 'POST',
 		credentials: 'same-origin',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ contact, username, skill })
+		body: JSON.stringify({ contact, username, skill, code })
 	});
-	const d = (await r.json()) as { name?: string; error?: string };
-	if (!r.ok || !d.name) throw new Error(d.error ?? 'Could not sign you in.');
+	const d = (await r.json()) as { name?: string; error?: string; needCode?: boolean; sentTo?: string; devCode?: string };
+	if (!r.ok) throw new Error(d.error ?? 'Could not sign you in.');
+	if (d.needCode && !d.name) return { needCode: true, sentTo: d.sentTo, devCode: d.devCode };
+	if (!d.name) throw new Error(d.error ?? 'Could not sign you in.');
 	await loadAccount(true);
+	return { needCode: false };
 }
 
 export async function rename(name: string): Promise<string> {
