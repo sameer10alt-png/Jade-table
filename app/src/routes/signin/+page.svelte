@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Sign in or create a player: Google, or any email / phone (Outlook, Yahoo, iCloud…).
+	// Sign in or create a player: Google, or any email (Outlook, Yahoo, iCloud…) confirmed with a code.
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';

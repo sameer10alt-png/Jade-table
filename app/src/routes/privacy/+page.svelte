@@ -39,6 +39,15 @@
 		<li>You can change the name other players see on your account page.</li>
 	</ul>
 
+	<h2>If you sign in with email</h2>
+	<ul>
+		<li>
+			We store your <b>email address</b>, the <b>username</b> you pick and your skill level. To check the email is yours, we send it a
+			6-digit code that works for 10 minutes; we keep only a scrambled fingerprint of the code and delete it once used.
+		</li>
+		<li>We only email you sign-in codes. No newsletters or marketing.</li>
+	</ul>
+
 	<h2>Cookies</h2>
 	<p>
 		We use only the cookies the site needs: one that keeps you signed in, and a short-lived one that protects the Google sign-in step.
@@ -56,6 +65,7 @@
 	<ul>
 		<li><b>Railway</b> hosts our servers and database (in the United States).</li>
 		<li><b>Google</b> handles sign-in, if you choose to use it.</li>
+		<li><b>Resend</b> delivers the sign-in code emails.</li>
 		<li><b>Google Fonts</b> supplies the site's fonts, so Google's font servers see your IP address when a page loads.</li>
 	</ul>
 
