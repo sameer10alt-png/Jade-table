@@ -175,6 +175,17 @@ function redirect(res: ServerResponse, to: string) {
 // ---- users & sessions ----
 
 async function upsertGoogleUser(sub: string, email: string | null, name: string, picture: string | null): Promise<User> {
+	// someone who signed up with this email first: attach Google to that player (one player per person)
+	if (email) {
+		const linked = await db!.query<User>(
+			`update users set google_sub = $1, picture = coalesce(picture, $3), last_seen = now()
+			 where lower(contact) = lower($2) and google_sub is null
+			   and not exists (select 1 from users where google_sub = $1)
+			 returning id, name, email, picture`,
+			[sub, email, picture]
+		);
+		if (linked.rows[0]) return { ...linked.rows[0], id: Number(linked.rows[0].id) };
+	}
 	const { rows } = await db!.query<User>(
 		`insert into users (google_sub, email, name, picture) values ($1, $2, $3, $4)
 		 on conflict (google_sub) do update set email = excluded.email, picture = excluded.picture, last_seen = now()
