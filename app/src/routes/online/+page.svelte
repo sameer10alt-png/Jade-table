@@ -81,7 +81,7 @@
 <main class="wrap">
 	<p class="kicker">Play online</p>
 	<h1>Find a game</h1>
-	<p class="lede">Get matched in seconds, or make a private table and share the code. Online hands count double for points.</p>
+	<p class="lede">Get matched in seconds, or make a private table and share the code.</p>
 
 	{#if account.loaded && account.enabled && !account.user}
 		<SignupGate next="/online" />

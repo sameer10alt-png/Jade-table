@@ -1,21 +1,18 @@
 <script lang="ts">
-	// Your progress: points, rank, checkpoints, record, history and saved practice reports.
+	// Your record: wins, draws, losses, recent hands and saved practice reports.
 	import { onMount } from 'svelte';
 	import { APP_NAME } from '#lib/brand.ts';
 	import DiagnosticReportView from '#lib/components/DiagnosticReport.svelte';
 	import type { DiagnosticReport } from '#lib/diagnostics.ts';
-	import { nextRank, rankFor, rankProgress, RANKS } from '#lib/ranks.ts';
 	import { account, loadAccount } from '#lib/online/account.svelte.ts';
 
 	interface Progress {
 		enabled: boolean;
 		signedIn: boolean;
-		rating?: number;
-		start?: number;
 		wins?: number;
 		losses?: number;
 		draws?: number;
-		history?: { outcome: string; delta: number; rating: number; source: string; at: string }[];
+		history?: { outcome: string; source: string; at: string }[];
 		diagnostics?: { id: number; at: string; report: DiagnosticReport }[];
 	}
 
@@ -32,22 +29,7 @@
 		}
 	});
 
-	const rating = $derived(p?.rating ?? 1000);
-	const rank = $derived(rankFor(rating));
-	const next = $derived(nextRank(rating));
 	const hands = $derived((p?.wins ?? 0) + (p?.losses ?? 0) + (p?.draws ?? 0));
-
-	// sparkline of points over time
-	const spark = $derived.by(() => {
-		const pts = [p?.start ?? rating, ...(p?.history ?? []).map((h) => h.rating)];
-		if (pts.length < 2) return null;
-		const lo = Math.min(...pts) - 10;
-		const hi = Math.max(...pts) + 10;
-		const W = 600;
-		const H = 120;
-		const xy = pts.map((v, i) => [(i / (pts.length - 1)) * W, H - ((v - lo) / (hi - lo)) * H]);
-		return { W, H, d: xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' '), last: xy[xy.length - 1] };
-	});
 	const OUT: Record<string, string> = { win: 'Won', loss: 'Lost', dealin: 'Dealt in', draw: 'Draw' };
 </script>
 
@@ -58,18 +40,11 @@
 	{#if !p}
 		<p class="muted">Loading…</p>
 	{:else if !p.signedIn}
-		<h1>Points and ranks</h1>
-		<p class="lede">Sign up to earn points every hand, climb the ranks and keep your practice reports.</p>
+		<h1>Your record</h1>
+		<p class="lede">Sign up to keep your wins, losses and practice reports.</p>
 		<a class="btn primary" href="/online">Sign up / sign in</a>
 	{:else}
 		<div class="hero card">
-			<div class="badge" style:background={rank.color}>{rank.name}</div>
-			<div class="pts">{rating.toLocaleString()} <span>points</span></div>
-			<p class="muted">{rank.blurb}</p>
-			<div class="bar"><div class="fill" style:width="{rankProgress(rating) * 100}%" style:background={rank.color}></div></div>
-			<p class="muted small">
-				{#if next}{next.min - rating} points to <strong>{next.name}</strong>{:else}Top rank reached{/if}
-			</p>
 			<div class="rec">
 				<span><strong>{p.wins}</strong> won</span>
 				<span><strong>{p.draws}</strong> draws</span>
@@ -78,40 +53,19 @@
 			</div>
 		</div>
 
-		<h2>Checkpoints</h2>
-		<div class="ladder">
-			{#each RANKS as r (r.name)}
-				<div class="step" class:reached={rating >= r.min} class:here={r.name === rank.name}>
-					<span class="chip" style:background={r.color}></span>
-					<strong>{r.name}</strong>
-					<span class="muted">{r.min.toLocaleString()}+</span>
-				</div>
-			{/each}
-		</div>
-		<p class="muted small">
-			Win a hand: points up. Draw: no change. Someone else wins: points down, most for whoever dealt in. Games against
-			people count twice as much as games against bots.
-		</p>
-
-		<h2>History</h2>
-		{#if spark}
-			<svg class="spark" viewBox="0 0 {spark.W} {spark.H}" preserveAspectRatio="none" aria-label="Points over time">
-				<path d={spark.d} fill="none" stroke={rank.color} stroke-width="2.5" vector-effect="non-scaling-stroke" />
-			</svg>
-		{/if}
+		<h2>Recent hands</h2>
 		{#if p.history?.length}
 			<div class="hist">
 				{#each [...p.history].reverse().slice(0, 15) as h, i (i)}
 					<div class="hrow">
-						<span>{OUT[h.outcome] ?? h.outcome}</span>
+						<span class:up={h.outcome === 'win'} class:down={h.outcome === 'dealin'}>{OUT[h.outcome] ?? h.outcome}</span>
 						<span class="muted">{h.source === 'online' ? 'vs people' : 'vs bots'}</span>
-						<span class="d" class:up={h.delta > 0} class:down={h.delta < 0}>{h.delta > 0 ? '+' : ''}{h.delta}</span>
-						<span class="muted">{h.rating}</span>
+						<span class="muted">{new Date(h.at).toLocaleDateString()}</span>
 					</div>
 				{/each}
 			</div>
 		{:else}
-			<p class="muted">No rated hands yet. <a href="/">Play a game</a> to start earning points.</p>
+			<p class="muted">No hands yet. <a href="/">Play a game</a> and they'll show up here.</p>
 		{/if}
 
 		<h2>Practice reports</h2>
@@ -146,9 +100,6 @@
 	.muted {
 		color: var(--ink-2);
 	}
-	.small {
-		font-size: 0.85rem;
-	}
 	.card {
 		background: var(--card);
 		border: 1px solid var(--line);
@@ -158,35 +109,6 @@
 	}
 	.hero {
 		text-align: center;
-	}
-	.badge {
-		display: inline-block;
-		color: #10131a;
-		font-weight: 700;
-		padding: 5px 14px;
-		border-radius: 99px;
-	}
-	.pts {
-		font-family: var(--display);
-		font-size: 3rem;
-		font-weight: 600;
-		margin: 8px 0 0;
-	}
-	.pts span {
-		font-size: 1rem;
-		color: var(--ink-2);
-		font-family: var(--font);
-	}
-	.bar {
-		height: 10px;
-		border-radius: 99px;
-		background: var(--bg-2);
-		overflow: hidden;
-		max-width: 420px;
-		margin: 12px auto 6px;
-	}
-	.fill {
-		height: 100%;
 	}
 	.rec {
 		display: flex;
@@ -199,46 +121,13 @@
 	.rec strong {
 		color: var(--ink);
 	}
-	.ladder {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-		gap: 8px;
-		margin-bottom: 8px;
-	}
-	.step {
-		display: flex;
-		flex-direction: column;
-		gap: 3px;
-		padding: 12px;
-		border: 1px solid var(--line);
-		border-radius: 12px;
-		opacity: 0.5;
-	}
-	.step.reached {
-		opacity: 1;
-	}
-	.step.here {
-		border-color: var(--pop);
-		box-shadow: 0 0 0 2px var(--pop) inset;
-	}
-	.chip {
-		width: 22px;
-		height: 6px;
-		border-radius: 3px;
-	}
-	.spark {
-		width: 100%;
-		height: 120px;
-		background: var(--bg-2);
-		border-radius: 12px;
-	}
 	.hist {
 		margin-top: 8px;
 	}
 	.hrow,
 	.drow {
 		display: grid;
-		grid-template-columns: 1fr 1fr 60px 60px;
+		grid-template-columns: 1fr 1fr auto;
 		gap: 10px;
 		padding: 8px 4px;
 		border-bottom: 1px solid var(--line);
@@ -255,10 +144,6 @@
 		font: inherit;
 		text-align: left;
 		cursor: pointer;
-	}
-	.d {
-		font-weight: 700;
-		text-align: right;
 	}
 	.up {
 		color: var(--good);

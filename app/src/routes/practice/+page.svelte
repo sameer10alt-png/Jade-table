@@ -70,7 +70,7 @@
 			{/if}
 			<button class="btn primary big" onclick={start}>{resuming ? 'Start over' : 'Start assessment'}</button>
 			{#if account.loaded && !account.user}
-				<p class="fine">Sign in to save your reports and earn points.</p>
+				<p class="fine">Sign in to save your reports.</p>
 			{/if}
 		</div>
 		<div class="card">
