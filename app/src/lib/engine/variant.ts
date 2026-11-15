@@ -72,6 +72,10 @@ export interface Variant {
 	streakOnDraw: boolean;
 	/** game ends when someone drops below zero */
 	bustOut: boolean;
+	/** the deal passes after every hand, even when the dealer wins (MCR) */
+	rotateDealer?: boolean;
+	/** hands below a points minimum can't be declared (Taiwanese round minimum, MCR 8 fan) */
+	minimumHand?: boolean;
 	scoreWin(ctx: WinContext): Scored;
 	settleWin(state: GameState, wins: WinSettle[]): Settlement;
 	settleDraw(state: GameState): DrawSettlement;

@@ -119,6 +119,12 @@
 					<span>Round minimum (East 20, South 22, West 24, North 26)</span>
 				</label>
 			{/if}
+			{#if data.variant === 'international'}
+				<label class="check">
+					<input type="checkbox" bind:checked={minimum} />
+					<span>8-fan minimum (official rule)</span>
+				</label>
+			{/if}
 			{#if data.variant === 'riichi'}
 				<label class="check">
 					<input type="checkbox" bind:checked={redFives} />

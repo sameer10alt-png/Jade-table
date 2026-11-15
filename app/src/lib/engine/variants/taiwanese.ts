@@ -358,6 +358,7 @@ export const taiwanese: Variant = {
 	goulash: false,
 	streakOnDraw: false,
 	bustOut: false,
+	minimumHand: true,
 	shantenSpecials: {},
 	special: (counts, _j, meldCount) =>
 		meldCount === 0 && (isNicoNico(counts) || isThirteenOrphans(counts) || isSixteenOrphans(counts)) ? 'special' : null,
