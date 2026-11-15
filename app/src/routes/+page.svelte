@@ -50,7 +50,7 @@
 	<section class="hero">
 		<p class="kicker">Shuffle up</p>
 		<h1>Pick your game. <em>Play it better.</em></h1>
-		<p class="lede">Taiwanese, Riichi or Bombay. Every game gets reviewed, and a coach answers your questions.</p>
+		<p class="lede">Taiwanese, Riichi or Bombay. Every game gets reviewed, and the Dragon answers your questions.</p>
 		<div class="hero-cta">
 			<a class="btn primary" href="/online">Play online</a>
 			<a class="btn" href="/practice">Test my skills</a>
@@ -85,8 +85,8 @@
 			<span class="btn primary">Take the test →</span>
 		</a>
 		<a class="feat" href="/ask">
-			<span class="tag">AI coach</span>
-			<h2>Stuck? Ask the coach.</h2>
+			<span class="tag">The Dragon · AI coach</span>
+			<h2>Stuck? Ask the Dragon.</h2>
 			<p>Rules, scoring, when to fold, which tile to throw. Ask in plain words and get a straight answer in seconds.</p>
 			<div class="chat" aria-hidden="true">
 				<div class="you">When should I stop attacking?</div>
@@ -158,7 +158,7 @@
 
 	<section class="how">
 		<a href="/ask">
-			<h3>A coach on call →</h3>
+			<h3>The Dragon, on call →</h3>
 			<p>Ask anything about rules, scoring or strategy and get a straight answer.</p>
 		</a>
 		<div>

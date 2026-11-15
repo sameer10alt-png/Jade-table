@@ -85,7 +85,7 @@
 				<small>3 hands → a full report on how you play</small>
 			</a>
 			<a class="nx" href="/ask">
-				<strong>Ask the coach</strong>
+				<strong>Ask the Dragon</strong>
 				<small>Questions about this game? Get an answer</small>
 			</a>
 		</div>

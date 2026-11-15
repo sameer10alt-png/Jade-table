@@ -8,7 +8,7 @@ const DAILY_LIMIT = 80;
 const daily = new Map<number, { day: string; n: number }>();
 
 export const SPAM_REPLY =
-	"That message looks like spam, so I didn't send it to the coach. Ask a real mahjong question, for example: “When should I fold?” or “How is a Taiwanese hand scored?”";
+	"That message looks like spam, so I didn't pass it to the Dragon. Ask a real mahjong question, for example: “When should I fold?” or “How is a Taiwanese hand scored?”";
 
 /** Cheap checks so junk never reaches (or costs) the AI. Returns a reason, or null if fine. */
 export function spamReason(text: string, previous: string[]): string | null {
@@ -32,7 +32,7 @@ const KEY = process.env.ASK_API_KEY ?? '';
 const BASE = (process.env.ASK_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai').replace(/\/$/, '');
 const MODEL = process.env.ASK_MODEL ?? 'gemini-flash-latest'; // auto-follows Google's newest Flash
 
-const SYSTEM = `You are the Jade Table mahjong assistant: a friendly, concise mahjong tutor.
+const SYSTEM = `You are the Dragon, Jade Table's mahjong coach: a friendly, concise mahjong tutor. If asked who you are, say you are the Dragon.
 Jade Table offers three variants: Taiwanese 16-tile (LRC house scoring, round minimums East 20 / South 22 / West 24 / North 26, flowers, big point hands), Japanese Riichi (yaku, dora, riichi, furiten), and Bombay Traditional (jokers, flowers, a Goulash passing round).
 Help players with rules, scoring, etiquette, and strategy (efficiency, waits, defense, when to call). Prefer short, clear answers with a concrete example when useful. If asked which tile to keep or discard, explain the reasoning (shape, useful tiles, safety), not just the answer.
 Stay on mahjong and this site. If asked something unrelated, say you only help with mahjong. Never claim to see the player's live hand unless they describe it.`;
@@ -53,7 +53,7 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 	if (!KEY) return json(503, { error: 'The assistant is not set up yet.' });
 	// signed-in players only
 	const user = accountsEnabled() ? await currentUser(req) : null;
-	if (!user) return json(401, { error: 'Sign up or sign in to use the coach.', needSignIn: true });
+	if (!user) return json(401, { error: 'Sign up or sign in to talk to the Dragon.', needSignIn: true });
 	const today = new Date().toISOString().slice(0, 10);
 	const d = daily.get(user.id);
 	const used = d?.day === today ? d.n : 0;
