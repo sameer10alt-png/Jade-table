@@ -105,7 +105,7 @@
 
 {#if !bare}
 	<footer class="wrap foot">
-		<span>{APP_NAME} · Just for fun: points are for bragging rights only.</span>
+		<span>{APP_NAME} · Free to play, just for fun.</span>
 		<span class="links"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></span>
 	</footer>
 {/if}

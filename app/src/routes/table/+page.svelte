@@ -6,7 +6,6 @@
 	import GameReview from '#lib/components/GameReview.svelte';
 	import type { GameReviewData, MoveReview } from '#lib/components/GameReview.svelte';
 	import DiagnosticReportView from '#lib/components/DiagnosticReport.svelte';
-	import RatingToast from '#lib/components/RatingToast.svelte';
 	import { botAction, botActionAt, reviewDiscard } from '#lib/engine/bots.ts';
 	import { applyAction, legal, newGame, pendingSeats } from '#lib/engine/game.ts';
 	import {
@@ -36,10 +35,9 @@
 	let showReview = $state(false);
 	let reviewData = $state<GameReviewData | null>(null);
 
-	// ---- practice assessment (3 hands, then a full diagnostic) and points ----
+	// ---- practice assessment (3 hands, then a full diagnostic) and your win/loss record ----
 	let assess = $state<AssessState | null>(null);
 	let report = $state<DiagnosticReport | null>(null);
-	let toast = $state<{ delta: number; rating: number; rank: string } | null>(null);
 	/** hands already handled (rating / assessment), so each counts once */
 	const handled = new Set<string>();
 	/** you let the bot play your seat this hand: it doesn't count */
@@ -105,18 +103,16 @@
 					}).catch(() => {});
 			} else saveAssess(assess);
 		}
-		// points: signed-in players earn them in bot games too (worth less than online)
+		// signed-in players: save the hand to their record
 		if (account.user) {
 			try {
-				const r = await fetch('/api/progress/hand', {
+				await fetch('/api/progress/hand', {
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({ outcome, key, opponents: g.players.slice(1).map((p) => p.bot ?? 'intermediate') })
 				});
-				const d = await r.json();
-				if (r.ok && typeof d.delta === 'number') toast = { delta: d.delta, rating: d.after, rank: d.rank };
 			} catch {
-				/* offline: no points this hand */
+				/* offline: this hand isn't saved */
 			}
 		}
 	}
@@ -291,9 +287,6 @@
 	{/if}
 	{#if report}
 		<DiagnosticReportView {report} onClose={() => (report = null)} />
-	{/if}
-	{#if toast}
-		<RatingToast {...toast} onDone={() => (toast = null)} />
 	{/if}
 {/if}
 

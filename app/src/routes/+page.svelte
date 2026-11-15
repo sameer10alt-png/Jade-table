@@ -49,8 +49,8 @@
 <main class="wrap">
 	<section class="hero">
 		<p class="kicker">Shuffle up</p>
-		<h1>Pick your game. <em>Climb the ranks.</em></h1>
-		<p class="lede">Taiwanese, Riichi or Bombay. Every hand earns points, every game gets reviewed, and a coach answers your questions.</p>
+		<h1>Pick your game. <em>Play it better.</em></h1>
+		<p class="lede">Taiwanese, Riichi or Bombay. Every game gets reviewed, and a coach answers your questions.</p>
 		<div class="hero-cta">
 			<a class="btn primary" href="/online">Play online</a>
 			<a class="btn" href="/practice">Test my skills</a>
@@ -134,8 +134,8 @@
 
 	<section class="how">
 		<div>
-			<h3>Points that mean something</h3>
-			<p>Win a hand to gain points, deal in and you drop. Climb from Bamboo to Jade Master.</p>
+			<h3>A coach on call</h3>
+			<p>Ask anything about rules, scoring or strategy and get a straight answer.</p>
 		</div>
 		<div>
 			<h3>A report card after every game</h3>
