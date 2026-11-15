@@ -217,7 +217,7 @@
 	}
 
 	// ---- driving the bots ----
-	const DELAY = { slow: 1100, normal: 650, fast: 250 };
+	const DELAY = { slow: 1600, normal: 1000, fast: 500 };
 	let timer: ReturnType<typeof setTimeout> | undefined;
 
 	$effect(() => {
@@ -236,7 +236,7 @@
 			timer = setTimeout(() => act(ME, { t: 'next' }), 4000);
 		} else if (bots.length) {
 			const base = DELAY[prefs.speed];
-			const wait = g.phase === 'claim' ? Math.min(250, base) : g.phase === 'passing' ? 200 : base;
+			const wait = g.phase === 'claim' ? Math.min(400, base) : g.phase === 'passing' ? 400 : base;
 			timer = setTimeout(() => {
 				const cur = game;
 				if (!cur) return;
