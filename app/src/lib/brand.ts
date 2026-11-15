@@ -1,5 +1,5 @@
 /** Product name shown across the site. Change it here. */
-export const APP_NAME = 'Jade Table';
+export const APP_NAME = 'Pung Table';
 
 /** Public contact address, shown on the privacy and terms pages. Set before publishing sign-in. */
 export const SUPPORT_EMAIL = 'jadetable.help@gmail.com';
