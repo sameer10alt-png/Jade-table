@@ -8,6 +8,7 @@
 import { botAction } from '../../../app/src/lib/engine/bots';
 import { applyAction, BOT_NAMES, legal, newGame, pendingSeats, VARIANTS } from '../../../app/src/lib/engine/game';
 import type { Action, BotLevel, GameState } from '../../../app/src/lib/engine/types';
+import { fillProfile, type Profile } from '../../../app/src/lib/online/profile';
 import {
 	redactFor,
 	type ClientMsg,
@@ -42,6 +43,9 @@ export interface Room {
 	quick?: boolean;
 	/** human-looking names to use for the bot seats (quick match), so filled seats read as people */
 	fillNames?: string[];
+	/** made-up profiles for the filled seats, by name (quick match), and by seat once the game starts */
+	fillProfiles?: Profile[];
+	botProfiles?: (Profile | null)[];
 	/** last hand that was rated, so each hand counts once */
 	ratedKey?: string;
 }
@@ -160,7 +164,7 @@ export class TableCore {
 
 	/** A quick-match table: the matched players are seated straight away (first one hosts, so
 	 * they can offer "play again"). Each gets the usual grace period to arrive. */
-	async initQuick(code: string, settings: TableSettings, players: { pid: string; name: string }[], fillNames: string[] = []) {
+	async initQuick(code: string, settings: TableSettings, players: { pid: string; name: string }[], fillNames: string[] = [], fillProfiles: Profile[] = []) {
 		if (!(await this.init(code, settings, players[0].pid))) return false;
 		const r = this.room!;
 		const now = Date.now();
@@ -170,6 +174,7 @@ export class TableCore {
 		});
 		r.quick = true;
 		r.fillNames = fillNames.map(cleanName).filter(Boolean);
+		r.fillProfiles = fillProfiles;
 		await this.host.save(r);
 		return true;
 	}
@@ -278,9 +283,18 @@ export class TableCore {
 			seed: (Math.random() * 2 ** 31) | 0,
 			seats
 		});
+		// a profile for each filled seat: the one shown while waiting (quick match), or a new one
+		r.botProfiles = seats.map((s, i) =>
+			s.bot ? (r.fillProfiles?.find((p) => p.name === s.name) ?? fillProfile(s.name, s.bot, `${r.code}:${i}`)) : null
+		);
 		r.status = 'playing';
 		r.ready = [];
 		r.deadlineKey = '';
+	}
+
+	/** the profile of a filled seat (null if it is a person's or the game hasn't started) */
+	botProfile(seat: number): Profile | null {
+		return this.room?.botProfiles?.[seat] ?? null;
 	}
 
 	isConnected(pid: string) {

@@ -16,7 +16,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { isTableCode, makeTableCode, type ServerMsg, type TableSettings } from '../../app/src/lib/online/protocol';
 import { accountPid, currentUser, getDb, handleAuth, initAccounts, SKILL_TO_LEVEL } from './accounts';
 import { handleAsk } from './assistant';
-import { handleProgress, migrateProgress, rateOnlineHand } from './progress';
+import { accountProfiles, handleProgress, migrateProgress, rateOnlineHand } from './progress';
 import { forgetMember, makeStore, myTables, rememberMember, type TableStore } from './storage';
 import { handleFriends } from './friends';
 import { handleNotifications, noteJoined } from './notifications';
@@ -113,9 +113,14 @@ const quick = new QuickQueue(async (variant, players, fill) => {
 	tables.set(code, t);
 	// bots at the player's skill level, named like people, and not tagged "Bot" at the table
 	const settings = cleanSettings({ variant, botLevel: fill.level })!;
-	await t.run(() => t.core.initQuick(code, settings, players, fill.names));
+	await t.run(() => t.core.initQuick(code, settings, players, fill.names, fill.profiles));
 	setTimeout(() => t.run(() => t.core.quickStart(true)), QUICK_ARRIVE).unref();
 	return code;
+}, (pid) => {
+	// real people around right now: other lines, plus anyone connected to a table
+	const atTables = new Set<string>();
+	for (const t of tables.values()) for (const c of t.connections()) if (c.pid !== pid) atTables.add(c.pid);
+	return quick.activeOthers(pid) + atTables.size;
 });
 
 // Forget abandoned tables: nobody connected and nothing happened for a while.
@@ -224,20 +229,40 @@ const server = createServer(async (req, res) => {
 		if (url.pathname === '/api/quick/counts' && req.method === 'GET') return sendJson(res, 200, { waiting: quick.counts() });
 		const qm = url.pathname.match(/^\/api\/quick\/(join|status|now|leave)$/);
 		if (qm && req.method === 'POST') {
-			const body = ((await readBody(req).catch(() => null)) ?? {}) as { variant?: string; playerId?: string; name?: string };
+			const body = ((await readBody(req).catch(() => null)) ?? {}) as { variant?: string; playerId?: string; name?: string; since?: number };
 			const user = await currentUser(req);
 			const pid = user ? accountPid(user) : guestOnly(body.playerId);
 			if (!validPid(pid)) return sendJson(res, 400, { error: 'Bad request' });
 			if (qm[1] === 'join') {
 				if (!cleanSettings({ variant: body.variant as never })) return sendJson(res, 400, { error: 'Unknown game' });
 				const level = user?.skill ? SKILL_TO_LEVEL[user.skill] ?? 'intermediate' : 'intermediate';
-				return sendJson(res, 200, await quick.join(pid, user ? user.name : cleanName(body.name ?? null), body.variant as never, level));
+				const since = typeof body.since === 'number' ? body.since : undefined;
+				return sendJson(res, 200, await quick.join(pid, user ? user.name : cleanName(body.name ?? null), body.variant as never, level, since, user?.picture ?? null));
 			}
 			if (qm[1] === 'leave') {
 				quick.leave(pid);
 				return sendJson(res, 200, { ok: true });
 			}
 			return sendJson(res, 200, qm[1] === 'now' ? await quick.now(pid) : await quick.status(pid));
+		}
+
+		// Profiles of the players at a table (picture + record), for the seat cards
+		const pm = url.pathname.match(/^\/api\/tables\/([A-Z0-9]{6})\/profiles$/);
+		if (pm && req.method === 'GET') {
+			const t = isTableCode(pm[1]) ? await getTable(pm[1]) : null;
+			const room = t?.core.room;
+			if (!room) return sendJson(res, 404, { error: 'No such table' });
+			const ids = room.seats.map((s) => (s?.playerId.startsWith('account-') ? Number(s.playerId.slice(8)) : null));
+			const real = await accountProfiles(ids.filter((x): x is number => x !== null));
+			const profiles = room.seats.map((s, i) => {
+				if (s) {
+					const id = ids[i];
+					const p = id !== null ? real.get(id) : undefined;
+					return p ? { ...p, name: s.name } : { name: s.name, picture: null, hands: 0, wins: 0, since: null };
+				}
+				return t!.core.botProfile(i);
+			});
+			return sendJson(res, 200, { profiles });
 		}
 
 		const m = url.pathname.match(/^\/api\/tables\/([A-Z0-9]{6})$/);

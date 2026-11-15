@@ -3,6 +3,8 @@
 	import { WIND_NAMES, WIND_SHORT } from '#lib/engine/tiles.ts';
 	import Tile from './Tile.svelte';
 	import FriendIcon from './FriendIcon.svelte';
+	import Avatar from './Avatar.svelte';
+	import type { Profile } from '#lib/online/profile.ts';
 	import type { SeatFriend } from '#lib/online/friends.svelte.ts';
 
 	// Opponents get as little space as possible: their hidden tiles are only a number,
@@ -18,7 +20,8 @@
 		scoreLabel,
 		friend = null,
 		onAddFriend,
-		hideBots = false
+		hideBots = false,
+		profile = null
 	}: {
 		player: Player;
 		wind: number;
@@ -33,11 +36,17 @@
 		onAddFriend?: () => void;
 		/** online tables: don't reveal which seats are bots (they play as named "people") */
 		hideBots?: boolean;
+		/** online: picture and record shown on the seat (tap the name for the card) */
+		profile?: Profile | null;
 	} = $props();
+	let showCard = $state(false);
+	const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+	const sinceLabel = $derived(profile?.since ? `${MONTHS[Number(profile.since.slice(5, 7)) - 1]} ${profile.since.slice(0, 4)}` : null);
+	const winPct = $derived(profile && profile.hands ? Math.round((profile.wins / profile.hands) * 100) : null);
 
 	const LEVEL: Record<string, string> = { beginner: 'Beginner', intermediate: 'Intermediate', expert: 'Expert' };
 	const isBot = $derived(!!player.bot && !hideBots);
-	const level = $derived(isBot ? LEVEL[player.bot!] : 'Player');
+	const level = $derived(isBot ? LEVEL[player.bot!] : profile?.hands ? `${profile.hands} hands · ${winPct}% wins` : 'Player');
 </script>
 
 {#if layout !== 'rail'}
@@ -45,7 +54,7 @@
 		<div class="row">
 			<span class="wind" class:dealer title={dealer ? 'Dealer' : (WIND_NAMES[wind] ?? 'Seat not decided yet')}>{WIND_SHORT[wind] ?? '·'}</span>
 			<div class="who">
-				<span class="nameline"><span class="name">{player.name}{isBot ? ' (Bot)' : ''}{dealer ? ' · Dealer' : ''}</span><FriendIcon state={friend} onAdd={onAddFriend} /></span>
+				<span class="nameline">{#if profile}<button class="pbtn" onclick={() => (showCard = !showCard)} aria-label="Show {player.name}'s profile"><Avatar name={player.name} picture={profile.picture} size={22} /></button>{/if}<span class="name">{player.name}{isBot ? ' (Bot)' : ''}{dealer ? ' · Dealer' : ''}</span><FriendIcon state={friend} onAdd={onAddFriend} /></span>
 				<span class="lvl">{level}</span>
 				{#if layout === 'card'}
 					<span class="inhand">{player.hand.length} in hand · {player.flowers.length} {player.flowers.length === 1 ? 'flower' : 'flowers'}</span>
@@ -90,6 +99,7 @@
 			{/if}
 		</div>
 		<span class="vlabel">
+			{#if profile}<button class="pbtn" onclick={() => (showCard = !showCard)} aria-label="Show {player.name}'s profile"><Avatar name={player.name} picture={profile.picture} size={22} /></button>{/if}
 			<b>{player.name}{isBot ? ' (Bot)' : ''}</b>
 			<em>{level}</em>
 			<i>{scoreLabel}</i>
@@ -97,7 +107,76 @@
 	</div>
 {/if}
 
+{#if showCard && profile}
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<div class="pback" onclick={() => (showCard = false)}>
+		<div class="pcard" role="dialog" tabindex="-1" aria-label="{player.name}'s profile" onclick={(e) => e.stopPropagation()}>
+			<Avatar name={player.name} picture={profile.picture} size={64} />
+			<b class="pname">{player.name}</b>
+			{#if sinceLabel}<span class="psince">Playing since {sinceLabel}</span>{/if}
+			<div class="pstats">
+				<span><b>{profile.hands}</b>hands</span>
+				<span><b>{profile.wins}</b>wins</span>
+				<span><b>{winPct ?? 0}%</b>win rate</span>
+			</div>
+			<button class="btn" onclick={() => (showCard = false)}>Close</button>
+		</div>
+	</div>
+{/if}
+
 <style>
+	.pbtn {
+		all: unset;
+		cursor: pointer;
+		display: inline-flex;
+		border-radius: 50%;
+	}
+	.pbtn:focus-visible {
+		outline: 2px solid var(--accent);
+	}
+	.pback {
+		position: fixed;
+		inset: 0;
+		z-index: 50;
+		display: grid;
+		place-items: center;
+		background: rgba(0, 0, 0, 0.35);
+	}
+	.pcard {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 8px;
+		min-width: 230px;
+		padding: 20px;
+		border-radius: 16px;
+		background: var(--card, #fff);
+		color: var(--ink, #222);
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+	}
+	.pname {
+		font-size: 1.15rem;
+	}
+	.psince {
+		font-size: 0.8rem;
+		color: var(--ink-2, #666);
+	}
+	.pstats {
+		display: flex;
+		gap: 16px;
+		margin: 6px 0;
+	}
+	.pstats span {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		font-size: 0.75rem;
+		color: var(--ink-2, #666);
+	}
+	.pstats b {
+		font-size: 1.1rem;
+		color: var(--ink, #222);
+	}
 	.wind {
 		display: grid;
 		place-items: center;

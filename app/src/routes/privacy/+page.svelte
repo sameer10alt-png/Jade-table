@@ -37,6 +37,7 @@
 			code in a cookie, and our database keeps only a scrambled fingerprint (hash) of it.
 		</li>
 		<li>You can change the name other players see on your account page.</li>
+		<li>At an online table, the other players can see your name, your profile picture and your hand record (hands played and won).</li>
 	</ul>
 
 	<h2>If you sign in with email</h2>

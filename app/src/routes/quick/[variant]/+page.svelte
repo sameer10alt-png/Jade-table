@@ -10,6 +10,7 @@
 	import { identity, saveIdentity, type Identity } from '#lib/online/client.ts';
 	import { account, loadAccount } from '#lib/online/account.svelte.ts';
 	import { quickJoin, quickLeave, quickNow, quickStatus, type QuickStatus } from '#lib/online/quick.ts';
+	import Avatar from '#lib/components/Avatar.svelte';
 
 	const variant = page.params.variant as VariantId;
 	const v = VARIANTS[variant];
@@ -19,6 +20,8 @@
 	let error = $state('');
 	let matched = false;
 	let botsAt = $state(0);
+	/** when we first joined (kept so a rejoin after a server restart doesn't reset the timer) */
+	let since: number | undefined;
 	let now = $state(Date.now());
 	let poll: ReturnType<typeof setInterval> | undefined;
 	const clock = setInterval(() => (now = Date.now()), 250);
@@ -47,7 +50,10 @@
 
 	function apply(s: QuickStatus) {
 		status = s;
-		if (s.state === 'waiting') botsAt = Date.now() + s.startsInMs;
+		if (s.state === 'waiting') {
+			botsAt = Date.now() + s.startsInMs;
+			since ??= s.since;
+		}
 		if (s.state === 'matched') {
 			matched = true;
 			clearInterval(poll);
@@ -69,7 +75,7 @@
 			try {
 				const s = await quickStatus(me.id);
 				// the server forgot us (e.g. it restarted): get back in line
-				if (s.state === 'none' && !matched) apply(await quickJoin(variant, me.id, me.name));
+				if (s.state === 'none' && !matched) apply(await quickJoin(variant, me.id, me.name, since));
 				else apply(s);
 			} catch {
 				/* a missed check-in is fine; the next one retries */
@@ -96,7 +102,8 @@
 	const waiting = $derived(status?.state === 'waiting' ? status.waiting : 1);
 	// names shown filling the table: you, then whoever's joined (real co-waiters or simulated joiners)
 	const joined = $derived(status?.state === 'waiting' ? status.joined : []);
-	const seatNames = $derived([me.name || 'You', ...joined].slice(0, 4));
+	const seatNames = $derived([me.name || 'You', ...joined.map((j) => j.name)].slice(0, 4));
+	const myPicture = $derived(account.user?.picture ?? null);
 	const secs = $derived(Math.max(0, Math.ceil((botsAt - now) / 1000)));
 </script>
 
@@ -118,7 +125,7 @@
 			<ol class="seats" aria-label="Seats">
 				{#each [0, 1, 2, 3] as i (i)}
 					<li class:you={i === 0} class:filled={i < seatNames.length}>
-						{#if i === 0}<b>You</b>{:else if i < seatNames.length}<b>{seatNames[i]}</b>{:else}<span class="pulse">?</span>{/if}
+						{#if i === 0}<Avatar name={me.name || 'You'} picture={myPicture} size={36} /><b>You</b>{:else if i < seatNames.length}<Avatar name={joined[i - 1].name} picture={joined[i - 1].picture} size={36} /><b>{seatNames[i]}</b>{:else}<span class="pulse">?</span>{/if}
 					</li>
 				{/each}
 			</ol>
@@ -164,13 +171,16 @@
 		margin: 6px auto;
 		padding: 0;
 		display: grid;
-		grid-template-columns: repeat(4, 64px);
+		grid-template-columns: repeat(4, 72px);
 		gap: 10px;
 	}
 	.seats li {
-		display: grid;
-		place-items: center;
-		height: 80px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 4px;
+		height: 88px;
 		border-radius: 10px;
 		background: var(--bg-2);
 		border: 2px dashed var(--line);
