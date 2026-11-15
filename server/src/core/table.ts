@@ -68,7 +68,8 @@ export interface Host {
 }
 
 // how long a person gets before the server plays for them
-const LIMIT: Record<string, number> = { claim: 15_000, turn: 40_000, passing: 40_000, ended: 45_000, seating: 15_000, wallbreak: 15_000 };
+// online only (people and filled seats); solo play against the computer has no clock
+const LIMIT: Record<string, number> = { claim: 15_000, turn: 30_000, passing: 30_000, ended: 45_000, seating: 15_000, wallbreak: 15_000 };
 // a dropped connection (e.g. a page refresh) gets this long before a bot covers the seat
 const GRACE = 10_000;
 // how long bots "think", so people can follow what happened
