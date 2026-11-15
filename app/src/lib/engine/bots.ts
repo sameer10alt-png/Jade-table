@@ -43,8 +43,8 @@ function valueBias(s: GameState, seat: number, tiles: Tile[], discard: Tile): nu
 	if (i === undefined) return 0;
 	const count = tiles.filter((t) => t.k === discard.k).length + 1;
 	const valuable = idxIsDragon(i) || i === windIdx((seat - s.dealer + 4) % 4) || i === windIdx(s.round);
-	// Taiwanese tables with a round minimum need bigger hands, so value matters more.
-	const greedy = v.id === 'taiwanese' && s.opts.minimum ? 3 : 1;
+	// Tables with a points minimum (Taiwanese, International) need bigger hands, so value matters more.
+	const greedy = v.minimumHand && s.opts.minimum ? 3 : 1;
 	let bias = 0;
 	if (valuable && count >= 2) bias -= 40 * greedy;
 	else if (valuable && greedy > 1) bias -= 15;
@@ -86,7 +86,7 @@ function danger(s: GameState, seat: number, t: Tile, seen: number[]): number {
  */
 function deadReadyPenalty(s: GameState, seat: number, rest: Tile[]): number {
 	const v = variantOf(s);
-	if (v.id !== 'taiwanese' || !s.opts.minimum) return 0;
+	if (!v.minimumHand || !s.opts.minimum) return 0;
 	const p = s.players[seat];
 	const waits = winningKinds(rest, p.melds.length, v.sets, v.special);
 	if (!waits.length) return 0;
@@ -251,7 +251,7 @@ function openingIsWorthIt(s: GameState, seat: number, option: ClaimOption, level
 		const tanyaoPath = termHonor <= 1 && !idxTermOrHonor(i);
 		return hasYakuhaiMeld || tanyaoPath || flushPath;
 	}
-	if (v.id === 'taiwanese') {
+	if (v.id === 'taiwanese' || v.id === 'international') {
 		if (flushPath) return true;
 		if (option.type !== 'chow' && p.melds.every((m) => m.type !== 'chow') && alreadyOpen) return true;
 		return alreadyOpen && after <= 1;

@@ -15,7 +15,8 @@
 	const cards = [
 		{ id: 'taiwanese', sample: ['dr', 'dr', 'dr', 'f2'] },
 		{ id: 'riichi', sample: ['p5', 'p5', 'c5', 'ww'] },
-		{ id: 'bombay', sample: ['jk', 'dg', 'dg', 's3'] }
+		{ id: 'bombay', sample: ['jk', 'dg', 'dg', 's3'] },
+		{ id: 'international', sample: ['b2', 'b3', 'b4', 'dg'] }
 	];
 	let saved = $state<GameState | null>(null);
 	let onlineCode = $state<string | null>(null);
@@ -50,7 +51,7 @@
 	<section class="hero">
 		<p class="kicker">Shuffle up</p>
 		<h1>Pick your game. <em>Play it better.</em></h1>
-		<p class="lede">Taiwanese, Riichi or Bombay. Every game gets reviewed, and the Dragon answers your questions.</p>
+		<p class="lede">International, Taiwanese, Riichi or Bombay. Every game gets reviewed, and the Dragon answers your questions.</p>
 		<div class="hero-cta">
 			<a class="btn primary" href="/online">Play online</a>
 			<a class="btn" href="/practice">Test my skills</a>
@@ -263,7 +264,7 @@
 	}
 	.games {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 		gap: 16px;
 	}
 	.game {

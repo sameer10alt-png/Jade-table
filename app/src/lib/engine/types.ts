@@ -1,6 +1,6 @@
 import type { Kind, Tile } from './tiles';
 
-export type VariantId = 'taiwanese' | 'riichi' | 'bombay';
+export type VariantId = 'taiwanese' | 'riichi' | 'bombay' | 'international';
 export type BotLevel = 'beginner' | 'intermediate' | 'expert';
 
 export interface Meld {

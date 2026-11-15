@@ -4,9 +4,10 @@ import type { Action, ClaimOption, GameOptions, GameState, HandResult, Player, W
 import type { Scored, Variant, WinContext } from './variant';
 import { bombay } from './variants/bombay';
 import { riichi } from './variants/riichi';
+import { mcr } from './variants/mcr';
 import { taiwanese } from './variants/taiwanese';
 
-export const VARIANTS: Record<string, Variant> = { taiwanese, riichi, bombay };
+export const VARIANTS: Record<string, Variant> = { taiwanese, riichi, bombay, international: mcr };
 export const variantOf = (s: GameState) => VARIANTS[s.opts.variant];
 
 export const BOT_NAMES = ['Crane', 'Lotus', 'Tiger', 'Panda'];
@@ -532,7 +533,7 @@ function finishWin(s: GameState, winners: number[], tile: Tile, from: number | n
 		wins,
 		deltas: st.deltas,
 		notes: st.notes,
-		dealerKeeps: winners.includes(s.dealer),
+		dealerKeeps: !v.rotateDealer && winners.includes(s.dealer),
 		uraIndicators: v.riichi && winners.some((w) => s.players[w].riichi) ? s.deadWall.slice(5, 5 + s.dora.length) : undefined
 	};
 	s.result = result;
