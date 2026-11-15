@@ -7,6 +7,7 @@
 	import DicePanel from '#lib/components/DicePanel.svelte';
 	import TableMenu from '#lib/components/TableMenu.svelte';
 	import Opponent from '#lib/components/Opponent.svelte';
+	import type { Profile } from '#lib/online/profile.ts';
 	import Tile from '#lib/components/Tile.svelte';
 	import { suggestDiscard } from '#lib/engine/bots.ts';
 	import { legal, pendingSeats, seatWind, standings, VARIANTS } from '#lib/engine/game.ts';
@@ -35,7 +36,8 @@
 		quitLabel = 'End this table',
 		friends = [],
 		onAddFriend,
-		hideBots = false
+		hideBots = false,
+		profiles = []
 	}: {
 		game: GameState;
 		/** the viewer's seat; they are always drawn at the bottom */
@@ -62,6 +64,8 @@
 		onAddFriend?: (seat: number) => void;
 		/** online tables: play filled seats as named "people", hiding the bot tag */
 		hideBots?: boolean;
+		/** online: each seat's picture and record */
+		profiles?: (Profile | null)[];
 	} = $props();
 
 	const ME = $derived(seat);
@@ -277,15 +281,15 @@
 			{#if wide}
 				<div class="cards">
 					{#each [seats.left, seats.top, seats.right] as s (s)}
-						<Opponent layout="card" player={game.players[s]} friend={friends[s] ?? null} onAddFriend={onAddFriend && (() => onAddFriend(s))} wind={windOf(s)} dealer={isDealer(s)} active={pendingSeats(game).includes(s)} scoreLabel={fmt(game.players[s].score)} reveal={game.phase === 'ended' || game.phase === 'gameover'} {hideBots} />
+						<Opponent layout="card" player={game.players[s]} friend={friends[s] ?? null} onAddFriend={onAddFriend && (() => onAddFriend(s))} wind={windOf(s)} dealer={isDealer(s)} active={pendingSeats(game).includes(s)} scoreLabel={fmt(game.players[s].score)} reveal={game.phase === 'ended' || game.phase === 'gameover'} profile={profiles[s] ?? null} {hideBots} />
 					{/each}
 				</div>
 			{:else}
 			<div class="b-left">
-				<Opponent layout="rail" side="left" player={game.players[seats.left]} friend={friends[seats.left] ?? null} onAddFriend={onAddFriend && (() => onAddFriend(seats.left))} wind={windOf(seats.left)} dealer={isDealer(seats.left)} active={pendingSeats(game).includes(seats.left)} scoreLabel={fmt(game.players[seats.left].score)} {hideBots} />
+				<Opponent layout="rail" side="left" player={game.players[seats.left]} friend={friends[seats.left] ?? null} onAddFriend={onAddFriend && (() => onAddFriend(seats.left))} wind={windOf(seats.left)} dealer={isDealer(seats.left)} active={pendingSeats(game).includes(seats.left)} scoreLabel={fmt(game.players[seats.left].score)} profile={profiles[seats.left] ?? null} {hideBots} />
 			</div>
 			<div class="b-top">
-				<Opponent layout="top" player={game.players[seats.top]} friend={friends[seats.top] ?? null} onAddFriend={onAddFriend && (() => onAddFriend(seats.top))} wind={windOf(seats.top)} dealer={isDealer(seats.top)} active={pendingSeats(game).includes(seats.top)} scoreLabel={fmt(game.players[seats.top].score)} reveal={game.phase === 'ended' || game.phase === 'gameover'} {hideBots} />
+				<Opponent layout="top" player={game.players[seats.top]} friend={friends[seats.top] ?? null} onAddFriend={onAddFriend && (() => onAddFriend(seats.top))} wind={windOf(seats.top)} dealer={isDealer(seats.top)} active={pendingSeats(game).includes(seats.top)} scoreLabel={fmt(game.players[seats.top].score)} reveal={game.phase === 'ended' || game.phase === 'gameover'} profile={profiles[seats.top] ?? null} {hideBots} />
 			</div>
 			{/if}
 			<div class="b-mid">
@@ -308,7 +312,7 @@
 			</div>
 			{#if !wide}
 			<div class="b-right">
-				<Opponent layout="rail" side="right" player={game.players[seats.right]} friend={friends[seats.right] ?? null} onAddFriend={onAddFriend && (() => onAddFriend(seats.right))} wind={windOf(seats.right)} dealer={isDealer(seats.right)} active={pendingSeats(game).includes(seats.right)} scoreLabel={fmt(game.players[seats.right].score)} {hideBots} />
+				<Opponent layout="rail" side="right" player={game.players[seats.right]} friend={friends[seats.right] ?? null} onAddFriend={onAddFriend && (() => onAddFriend(seats.right))} wind={windOf(seats.right)} dealer={isDealer(seats.right)} active={pendingSeats(game).includes(seats.right)} scoreLabel={fmt(game.players[seats.right].score)} profile={profiles[seats.right] ?? null} {hideBots} />
 			</div>
 			{/if}
 		</div>

@@ -11,6 +11,8 @@
 	import { account, loadAccount } from '#lib/online/account.svelte.ts';
 	import FriendRow from '#lib/components/FriendRow.svelte';
 	import { addSeatFriend, friendsOverview, inviteFriend, tableFriends, type Friend, type SeatFriend } from '#lib/online/friends.svelte.ts';
+	import { tableProfiles } from '#lib/online/quick.ts';
+	import type { Profile } from '#lib/online/profile.ts';
 
 	const code = page.params.code!.toUpperCase();
 	let autostart = page.url.searchParams.get('start') === '1';
@@ -128,6 +130,13 @@
 		const t = setInterval(loadSeatFriends, 60_000);
 		return () => clearInterval(t);
 	});
+	// everyone's picture and record, refetched when someone sits down or the game starts
+	let seatProfiles = $state<(Profile | null)[]>([]);
+	const profileKey = $derived(room ? `${room.status}|${room.seats.map((s) => s?.name ?? '').join('|')}` : '');
+	$effect(() => {
+		if (!profileKey) return;
+		tableProfiles(code).then((p) => (seatProfiles = p));
+	});
 	async function addAtTable(i: number) {
 		try {
 			const r = await addSeatFriend(code, i);
@@ -146,6 +155,7 @@
 		{game}
 		{seat}
 		friends={seatFriends}
+		profiles={seatProfiles}
 		onAddFriend={addAtTable}
 		{error}
 		online

@@ -226,3 +226,20 @@ export async function handleProgress(req: IncomingMessage, res: ServerResponse, 
 	send(res, 404, { error: 'Not found' });
 	return true;
 }
+
+/** picture and hand record of these accounts, for the seat cards at a table */
+export async function accountProfiles(ids: number[]) {
+	const out = new Map<number, { picture: string | null; hands: number; wins: number; since: string | null }>();
+	const db = getDb();
+	if (!db || !ids.length) return out;
+	const { rows } = await db.query<{ id: number; picture: string | null; wins: number; losses: number; draws: number; created_at: string | Date }>(
+		`select id, picture, wins, losses, draws, created_at from users where id = any($1::int[])`,
+		[ids]
+	);
+	for (const r of rows) {
+		const d = new Date(r.created_at);
+		const since = isNaN(+d) ? null : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+		out.set(r.id, { picture: r.picture, hands: r.wins + r.losses + r.draws, wins: r.wins, since });
+	}
+	return out;
+}

@@ -49,7 +49,7 @@ const a = gid('ta'), b = gid('bo');
 await post('/api/quick/join', { variant: 'taiwanese', playerId: a, name: 'Tai' });
 const sb = await post('/api/quick/join', { variant: 'bombay', playerId: b, name: 'Bom' });
 check('each game has its own line', sb.state === 'waiting' && sb.waiting === 1, JSON.stringify(sb));
-check('waiting shows when the table starts', sb.startsInMs > 20_000 && sb.startsInMs <= 24_000, String(sb.startsInMs));
+check('someone else online: a short wait in case they join', sb.startsInMs > 10_000 && sb.startsInMs <= 13_000, String(sb.startsInMs));
 const counts = (await (await fetch(`${U}/api/quick/counts`)).json()).waiting;
 check('counts per game for the Online page', counts.taiwanese >= 1 && counts.bombay >= 1, JSON.stringify(counts));
 

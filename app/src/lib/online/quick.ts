@@ -1,9 +1,10 @@
 // Quick match: talk to /api/quick (see server/src/quick.ts). Guests send their browser id;
 // signed in, the server uses the account from the cookie instead.
 import type { VariantId } from '#lib/engine/types.ts';
+import type { Profile } from './profile.ts';
 
 export type QuickStatus =
-	| { state: 'waiting'; variant: VariantId; waiting: number; waitedMs: number; startsInMs: number; joined: string[] }
+	| { state: 'waiting'; variant: VariantId; waiting: number; waitedMs: number; startsInMs: number; joined: { name: string; picture: string | null }[]; since: number }
 	| { state: 'matched'; code: string }
 	| { state: 'none' };
 
@@ -20,7 +21,9 @@ async function post<T>(path: string, body: unknown, keepalive = false): Promise<
 	return d;
 }
 
-export const quickJoin = (variant: VariantId, playerId: string, name: string) => post<QuickStatus>('/api/quick/join', { variant, playerId, name });
+/** `since`: when this page first joined, so a rejoin after a server restart keeps its place */
+export const quickJoin = (variant: VariantId, playerId: string, name: string, since?: number) =>
+	post<QuickStatus>('/api/quick/join', { variant, playerId, name, since });
 export const quickStatus = (playerId: string) => post<QuickStatus>('/api/quick/status', { playerId });
 export const quickNow = (playerId: string) => post<QuickStatus>('/api/quick/now', { playerId });
 /** keepalive: still delivered when called while the page is closing */
@@ -30,3 +33,10 @@ export const quickCounts = () =>
 		.then((r) => r.json())
 		.then((d: { waiting: Record<string, number> }) => d.waiting)
 		.catch(() => ({}) as Record<string, number>);
+
+/** pictures and records of everyone at a table, by seat */
+export const tableProfiles = (code: string) =>
+	fetch(`/api/tables/${code}/profiles`)
+		.then((r) => r.json())
+		.then((d: { profiles: (Profile | null)[] }) => d.profiles ?? [])
+		.catch(() => [] as (Profile | null)[]);
