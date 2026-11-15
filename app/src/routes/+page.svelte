@@ -72,6 +72,30 @@
 		</span>
 	</section>
 
+	<section class="improve">
+		<a class="feat" href="/practice">
+			<span class="tag">Free skill test</span>
+			<h2>How good are you, really?</h2>
+			<p>Play 3 hands against the bot. Every move gets graded, then you get a report with your strengths, your weak spots and a plan to improve.</p>
+			<div class="mini" aria-hidden="true">
+				<div><span>Tile efficiency</span><i style:width="86%" class="g"></i></div>
+				<div><span>Defense</span><i style:width="70%" class="y"></i></div>
+				<div><span>Speed to ready</span><i style:width="54%" class="r"></i></div>
+			</div>
+			<span class="btn primary">Take the test →</span>
+		</a>
+		<a class="feat" href="/ask">
+			<span class="tag">AI coach</span>
+			<h2>Stuck? Ask the coach.</h2>
+			<p>Rules, scoring, when to fold, which tile to throw. Ask in plain words and get a straight answer in seconds.</p>
+			<div class="chat" aria-hidden="true">
+				<div class="you">When should I stop attacking?</div>
+				<div class="ai">Once someone declares ready and you're still two tiles away, switch to safe discards…</div>
+			</div>
+			<span class="btn primary">Ask a question →</span>
+		</a>
+	</section>
+
 	{#if saved}
 		<a class="resume" href="/table">
 			<span>
@@ -133,18 +157,18 @@
 	</a>
 
 	<section class="how">
-		<div>
-			<h3>A coach on call</h3>
+		<a href="/ask">
+			<h3>A coach on call →</h3>
 			<p>Ask anything about rules, scoring or strategy and get a straight answer.</p>
-		</div>
+		</a>
 		<div>
 			<h3>A report card after every game</h3>
 			<p>Each discard is graded from Brilliant to Blunder, with what to try next time.</p>
 		</div>
-		<div>
-			<h3>Know your weak spots</h3>
+		<a href="/practice">
+			<h3>Know your weak spots →</h3>
 			<p>Three practice hands against the bot give you a skill breakdown and a plan to improve.</p>
-		</div>
+		</a>
 	</section>
 </main>
 
@@ -298,6 +322,104 @@
 		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 		gap: 24px;
 		margin-top: 56px;
+	}
+	.how a {
+		color: inherit;
+		text-decoration: none;
+	}
+	.how a:hover h3 {
+		color: var(--pop);
+	}
+	.improve {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 16px;
+		margin: 22px 0;
+	}
+	.feat {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		padding: 22px;
+		border-radius: var(--radius);
+		background: linear-gradient(160deg, color-mix(in srgb, var(--pop) 22%, var(--card)), var(--card) 65%);
+		border: 1px solid color-mix(in srgb, var(--pop) 45%, var(--line));
+		color: var(--ink);
+		text-decoration: none;
+		transition: transform 0.15s, border-color 0.15s;
+	}
+	.feat:hover {
+		transform: translateY(-2px);
+		border-color: var(--pop);
+	}
+	.feat h2 {
+		margin: 0;
+		font-size: 1.45rem;
+	}
+	.feat p {
+		margin: 0;
+		color: var(--ink-2);
+	}
+	.feat .btn {
+		align-self: flex-start;
+		margin-top: auto;
+	}
+	.tag {
+		align-self: flex-start;
+		font: 700 0.7rem var(--font);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: #fff;
+		background: var(--pop);
+		padding: 4px 9px;
+		border-radius: 99px;
+	}
+	.mini {
+		display: grid;
+		gap: 7px;
+		font-size: 0.78rem;
+		color: var(--ink-2);
+	}
+	.mini div {
+		display: grid;
+		grid-template-columns: 110px 1fr;
+		align-items: center;
+		gap: 8px;
+	}
+	.mini i {
+		display: block;
+		height: 7px;
+		border-radius: 99px;
+	}
+	.mini .g {
+		background: var(--good);
+	}
+	.mini .y {
+		background: var(--accent);
+	}
+	.mini .r {
+		background: var(--danger);
+	}
+	.chat {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		font-size: 0.82rem;
+	}
+	.chat div {
+		padding: 7px 11px;
+		border-radius: 12px;
+		max-width: 85%;
+	}
+	.chat .you {
+		align-self: flex-end;
+		background: var(--accent);
+		color: var(--accent-ink);
+	}
+	.chat .ai {
+		align-self: flex-start;
+		background: var(--bg-2);
+		color: var(--ink);
 	}
 	.how h3 {
 		margin: 0 0 6px;

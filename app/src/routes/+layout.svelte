@@ -43,7 +43,7 @@
 				<a class="link" href="/" class:on={here('/')}>Play</a>
 				<a class="link" href="/online" class:on={here('/online')}>Online</a>
 				<a class="link" href="/rules/taiwanese" class:on={here('/rules')}>Rules</a>
-				<a class="link" href="/practice" class:on={here('/practice')}>Practice</a>
+				<a class="link" href="/practice" class:on={here('/practice')}>Practice<span class="new">New</span></a>
 				<a class="link" href="/ask" class:on={here('/ask')}>Coach</a>
 				{#if account.user}
 					<a class="link" href="/progress" class:on={here('/progress')}>Progress</a>
@@ -72,7 +72,7 @@
 						<a href="/online" class:on={here('/online')}>Online</a>
 						{#if account.user}<a href="/friends" class:on={here('/friends')}>Friends</a>{/if}
 						<a href="/rules/taiwanese" class:on={here('/rules')}>Rules</a>
-						<a href="/practice" class:on={here('/practice')}>Practice</a>
+						<a href="/practice" class:on={here('/practice')}>Practice <span class="new">New</span></a>
 						{#if account.user}<a href="/progress" class:on={here('/progress')}>Progress</a>{/if}
 						<a href="/ask" class:on={here('/ask')}>Coach</a>
 						<hr />
@@ -294,5 +294,15 @@
 		padding-bottom: 32px;
 		color: var(--ink-2);
 		font-size: 0.85rem;
+	}
+	.new {
+		margin-left: 5px;
+		padding: 1px 6px;
+		border-radius: 99px;
+		background: var(--pop);
+		color: #fff;
+		font-size: 0.62rem;
+		font-weight: 700;
+		vertical-align: 2px;
 	}
 </style>

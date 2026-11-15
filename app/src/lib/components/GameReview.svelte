@@ -79,6 +79,16 @@
 			<p class="clean">Clean game — no clear mistakes. Try a harder bot level.</p>
 		{/if}
 
+		<div class="next">
+			<a class="nx" href="/practice">
+				<strong>Take the skill test</strong>
+				<small>3 hands → a full report on how you play</small>
+			</a>
+			<a class="nx" href="/ask">
+				<strong>Ask the coach</strong>
+				<small>Questions about this game? Get an answer</small>
+			</a>
+		</div>
 		<button class="btn primary close" onclick={onClose}>Done</button>
 	</div>
 </div>
@@ -243,6 +253,30 @@
 	}
 	.clean {
 		color: var(--ink-2);
+	}
+	.next {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 8px;
+		margin-top: 18px;
+	}
+	.nx {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 11px 13px;
+		border-radius: 12px;
+		border: 1px solid color-mix(in srgb, var(--pop) 45%, var(--line));
+		background: color-mix(in srgb, var(--pop) 12%, var(--card));
+		color: var(--ink);
+		text-decoration: none;
+	}
+	.nx:hover {
+		border-color: var(--pop);
+	}
+	.nx small {
+		color: var(--ink-2);
+		font-size: 0.78rem;
 	}
 	.close {
 		margin-top: 18px;
