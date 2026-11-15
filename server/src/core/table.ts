@@ -68,11 +68,12 @@ const LIMIT: Record<string, number> = { claim: 15_000, turn: 40_000, passing: 40
 // a dropped connection (e.g. a page refresh) gets this long before a bot covers the seat
 const GRACE = 10_000;
 // how long bots "think", so people can follow what happened
-const BOT_DELAY: Record<string, number> = { claim: 350, turn: 700, passing: 300, seating: 600, wallbreak: 900 };
+const BOT_DELAY: Record<string, number> = { claim: 500, turn: 1000, passing: 600, seating: 800, wallbreak: 1000 };
 // Humans don't play on a metronome: mostly a natural pause, now and then a longer think.
 // Gives bots a believable, varied cadence so filled seats feel like real players.
 function humanDelay(base: number): number {
-	const mult = Math.random() < 0.15 ? 1.8 + Math.random() * 1.4 : 0.7 + Math.random() * 0.9;
+	// about a second a move, now and then a longer think
+	const mult = Math.random() < 0.1 ? 1.4 + Math.random() * 0.6 : 0.85 + Math.random() * 0.35;
 	return Math.round(base * mult);
 }
 const LEVELS: BotLevel[] = ['beginner', 'intermediate', 'expert'];

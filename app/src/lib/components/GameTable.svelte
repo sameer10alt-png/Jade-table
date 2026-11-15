@@ -11,7 +11,7 @@
 	import { suggestDiscard } from '#lib/engine/bots.ts';
 	import { legal, pendingSeats, seatWind, standings, VARIANTS } from '#lib/engine/game.ts';
 	import { shantenOf, winningKinds } from '#lib/engine/hand.ts';
-	import { kindName, sortTiles, WIND_NAMES, WIND_SHORT, type Tile as T } from '#lib/engine/tiles.ts';
+	import { kindName, organiseTiles, sortTiles, WIND_NAMES, WIND_SHORT, type Tile as T } from '#lib/engine/tiles.ts';
 	import type { Action, ClaimOption, GameState } from '#lib/engine/types.ts';
 	import type { SeatFriend } from '#lib/online/friends.svelte.ts';
 
@@ -100,7 +100,38 @@
 	const me = $derived(game?.players[ME]);
 	const L = $derived(game ? legal(game, ME) : null);
 	const myTurn = $derived(!!game && game.phase === 'turn' && game.turn === ME);
-	const hand = $derived(me ? sortTiles(me.hand.filter((t) => t.id !== (myTurn ? game!.drawn?.id : -1))) : []);
+	// your own tile order: dealt hands start sorted, new tiles land on the right,
+	// drag to rearrange, "Organise" groups sets together
+	let order = $state<number[]>([]);
+	let orderHand = -1;
+	const handTiles = $derived(me ? me.hand.filter((t) => t.id !== (myTurn ? game!.drawn?.id : -1)) : []);
+	$effect(() => {
+		if (!game) return;
+		const key = game.handNo * 1000 + (game.opts.seed % 1000);
+		const known = new Set(order);
+		// a new deal (many tiles we haven't placed yet) starts sorted
+		const fresh = handTiles.filter((t) => !known.has(t.id)).length > 2;
+		if (key !== orderHand || fresh) {
+			orderHand = key;
+			order = sortTiles(handTiles).map((t) => t.id);
+		}
+	});
+	const hand = $derived.by(() => {
+		const pos = new Map(order.map((id, i) => [id, i]));
+		const known = handTiles.filter((t) => pos.has(t.id)).sort((a, b) => pos.get(a.id)! - pos.get(b.id)!);
+		return [...known, ...handTiles.filter((t) => !pos.has(t.id))];
+	});
+	function organise() {
+		order = organiseTiles(handTiles).map((t) => t.id);
+	}
+	let dragId = $state<number | null>(null);
+	function dropOn(targetId: number) {
+		if (dragId === null || dragId === targetId) return;
+		const ids = hand.map((t) => t.id).filter((id) => id !== dragId);
+		ids.splice(ids.indexOf(targetId), 0, dragId);
+		order = ids;
+		dragId = null;
+	}
 	const drawn = $derived(myTurn && game?.drawn && me?.hand.some((t) => t.id === game!.drawn!.id) ? game.drawn : null);
 	const lastDiscardId = $derived.by(() => {
 		if (!game) return null;
@@ -310,6 +341,22 @@
 
 			<div class="hand" role="group" aria-label="Your hand" bind:clientWidth={handW} style="--hw: {tileW}px; grid-template-columns: repeat({handCols}, {tileW}px)">
 				{#each hand as t (t.id)}
+					<span
+						class="slot"
+						class:dragging={dragId === t.id}
+						draggable="true"
+						role="listitem"
+						ondragstart={(e) => {
+							dragId = t.id;
+							e.dataTransfer?.setData('text/plain', String(t.id));
+						}}
+						ondragover={(e) => e.preventDefault()}
+						ondrop={(e) => {
+							e.preventDefault();
+							dropOn(t.id);
+						}}
+						ondragend={() => (dragId = null)}
+					>
 					<Tile
 						tile={t}
 						size="lg"
@@ -319,6 +366,7 @@
 						dim={(myTurn || game.phase === 'passing') && !tileEnabled(t)}
 						onclick={() => clickTile(t)}
 					/>
+					</span>
 				{/each}
 				{#if drawn}
 					<span class="fresh" title="Just drawn">
@@ -336,6 +384,9 @@
 			</div>
 
 			<div class="actions">
+				{#if hand.length > 1}
+					<button class="btn organise" onclick={organise} title="Group your sets together (or drag tiles to rearrange)">Organise tiles</button>
+				{/if}
 				{#if game.phase === 'claim' && L.claims.length}
 					<span class="claimed"><Tile tile={game.claim!.tile} size="md" glow /></span>
 					{#each L.claims as o, i (i)}
@@ -665,6 +716,16 @@
 		width: 100%;
 		max-width: 1240px;
 		padding-top: 10px;
+	}
+	.slot {
+		display: block;
+		cursor: grab;
+	}
+	.slot.dragging {
+		opacity: 0.35;
+	}
+	.organise {
+		font-size: 0.85rem;
 	}
 	.actions {
 		display: flex;

@@ -132,3 +132,49 @@ export function shuffle<T>(arr: T[], seed: number): [T[], number] {
 	}
 	return [a, s];
 }
+
+/**
+ * "Organise" a hand: finished sets first (pungs, then runs), then pairs and two-tile
+ * shapes, then loose tiles, each group in suit order. Jokers and flowers go last.
+ */
+export function organiseTiles(tiles: Tile[]): Tile[] {
+	let rest = sortTiles(tiles);
+	const take = (pick: (t: Tile, pool: Tile[]) => Tile[] | null) => {
+		const out: Tile[][] = [];
+		for (let i = 0; i < rest.length; ) {
+			const got = pick(rest[i], rest);
+			if (got) {
+				out.push(got);
+				const ids = new Set(got.map((t) => t.id));
+				rest = rest.filter((t) => !ids.has(t.id));
+				i = 0;
+			} else i++;
+		}
+		return out;
+	};
+	const same = (t: Tile, pool: Tile[], n: number) => {
+		if (isJoker(t.k) || isFlower(t.k)) return null;
+		const g = pool.filter((x) => x.k === t.k);
+		return g.length >= n ? g.slice(0, n) : null;
+	};
+	const run = (t: Tile, pool: Tile[], len: number) => {
+		if (!isSuited(t.k)) return null;
+		const s = t.k[0];
+		const n = num(t.k);
+		const seq = [t];
+		for (let d = 1; d < len; d++) {
+			const x = pool.find((y) => y.k === `${s}${n + d}`);
+			if (!x) return null;
+			seq.push(x);
+		}
+		return seq;
+	};
+	const pungs = take((t, p) => same(t, p, 3));
+	const runs = take((t, p) => run(t, p, 3));
+	const pairs = take((t, p) => same(t, p, 2));
+	const twos = take((t, p) => run(t, p, 2));
+	const extras = rest.filter((t) => isJoker(t.k) || isFlower(t.k));
+	const loose = rest.filter((t) => !isJoker(t.k) && !isFlower(t.k));
+	const bySuit = (gs: Tile[][]) => gs.sort((a, b) => sortKey(a[0].k) - sortKey(b[0].k));
+	return [...bySuit([...pungs, ...runs]).flat(), ...bySuit([...pairs, ...twos]).flat(), ...loose, ...extras];
+}
