@@ -32,12 +32,12 @@ interface Fan {
 const EXCLUDES: Record<string, string[]> = {
 	bigFourWinds: ['bigThreeWinds', 'littleFourWinds', 'allPungs', 'prevalentWind', 'seatWind', 'pungTermHonor'],
 	bigThreeDragons: ['littleThreeDragons', 'dragonPung', 'twoDragonPungs'],
-	allGreen: ['halfFlush'],
+	allGreen: ['oneVoidedSuit'],
 	nineGates: ['fullFlush', 'concealedHand', 'pungTermHonor', 'noHonors', 'oneVoidedSuit'],
 	fourKongs: ['threeKongs', 'twoMeldedKongs', 'twoConcealedKongs', 'meldedKong', 'concealedKong', 'allPungs', 'singleWait'],
 	sevenShiftedPairs: ['sevenPairs', 'fullFlush', 'concealedHand', 'singleWait', 'noHonors', 'oneVoidedSuit'],
-	thirteenOrphans: ['allTypes', 'concealedHand', 'singleWait'],
-	allTerminals: ['allTermHonors', 'allPungs', 'pungTermHonor', 'outsideHand', 'noHonors', 'doublePung', 'triplePung'],
+	thirteenOrphans: ['allTypes', 'allTermHonors', 'concealedHand', 'singleWait'],
+	allTerminals: ['allTermHonors', 'allPungs', 'pungTermHonor', 'outsideHand', 'noHonors'],
 	littleFourWinds: ['bigThreeWinds', 'pungTermHonor'],
 	littleThreeDragons: ['dragonPung', 'twoDragonPungs'],
 	allHonors: ['allTermHonors', 'allPungs', 'outsideHand', 'pungTermHonor'],
@@ -45,7 +45,7 @@ const EXCLUDES: Record<string, string[]> = {
 	pureTerminalChows: ['fullFlush', 'allChows', 'pureDoubleChow', 'twoTerminalChows', 'noHonors', 'oneVoidedSuit'],
 	quadrupleChow: ['pureTripleChow', 'pureDoubleChow', 'tileHog', 'pureShiftedPungs'],
 	fourPureShiftedPungs: ['pureShiftedPungs', 'allPungs'],
-	fourPureShiftedChows: ['pureShiftedChows', 'shortStraight'],
+	fourPureShiftedChows: ['pureShiftedChows', 'shortStraight', 'twoTerminalChows'],
 	threeKongs: ['twoMeldedKongs', 'twoConcealedKongs', 'meldedKong', 'concealedKong'],
 	allTermHonors: ['allPungs', 'outsideHand', 'pungTermHonor'],
 	sevenPairs: ['concealedHand', 'singleWait'],
@@ -63,7 +63,8 @@ const EXCLUDES: Record<string, string[]> = {
 	lowerFour: ['noHonors'],
 	bigThreeWinds: ['pungTermHonor'],
 	reversibleTiles: ['oneVoidedSuit'],
-	twoConcealedKongs: ['concealedKong'],
+	twoConcealedKongs: ['concealedKong', 'twoConcealedPungs'],
+	meldedConcealedKongs: ['meldedKong', 'concealedKong'],
 	meldedHand: ['singleWait'],
 	twoDragonPungs: ['dragonPung'],
 	fullyConcealed: ['selfDrawn', 'concealedHand'],
@@ -84,11 +85,11 @@ function applyExclusions(fans: Fan[]): Fan[] {
 }
 
 /** Kinds visible on the table (discards still lying there + exposed melds), for "Last Tile". */
-function visibleCount(state: GameState, i: number, seat: number): number {
+function visibleCount(state: GameState, i: number): number {
 	let n = 0;
 	state.players.forEach((p, s) => {
 		for (const d of p.discards) if (!d.taken && KIND_INDEX[d.tile.k] === i) n++;
-		for (const m of p.melds) if (s !== seat && !m.concealed) for (const t of m.tiles) if (KIND_INDEX[t.k] === i) n++;
+		for (const m of p.melds) if (!m.concealed) for (const t of m.tiles) if (KIND_INDEX[t.k] === i) n++;
 	});
 	return n;
 }
@@ -131,7 +132,7 @@ function situationFans(ctx: WinContext, concealedHand: boolean, fans: Fan[]) {
 	}
 	if (ctx.robbingKong) fans.push({ id: 'robbingKong', name: 'Robbing the Kong', v: 8 });
 	const w = KIND_INDEX[ctx.winTile.k];
-	if (w !== undefined && !ctx.robbingKong && visibleCount(ctx.state, w, ctx.seat) === 3)
+	if (w !== undefined && !ctx.robbingKong && visibleCount(ctx.state, w) === 3)
 		fans.push({ id: 'lastTile', name: 'Last Tile (4th of its kind)', v: 4 });
 }
 
@@ -185,9 +186,11 @@ function evalStandard(ctx: WinContext, it: Interpretation, singleWaitOnly: boole
 	if (kongs.length === 4) fans.push({ id: 'fourKongs', name: 'Four Kongs', v: 88 });
 	else if (kongs.length === 3) fans.push({ id: 'threeKongs', name: 'Three Kongs', v: 32 });
 	else {
+		// rulebook: one melded + one concealed kong are 6 points
 		if (closedKongs === 2) fans.push({ id: 'twoConcealedKongs', name: 'Two Concealed Kongs', v: 8 });
+		else if (openKongs === 2) fans.push({ id: 'twoMeldedKongs', name: 'Two Melded Kongs', v: 4 });
+		else if (openKongs === 1 && closedKongs === 1) fans.push({ id: 'meldedConcealedKongs', name: 'Melded Kong + Concealed Kong', v: 6 });
 		else if (closedKongs === 1) fans.push({ id: 'concealedKong', name: 'Concealed Kong', v: 2 });
-		if (openKongs === 2) fans.push({ id: 'twoMeldedKongs', name: 'Two Melded Kongs', v: 4 });
 		else if (openKongs === 1) fans.push({ id: 'meldedKong', name: 'Melded Kong', v: 1 });
 	}
 
@@ -581,6 +584,7 @@ export const mcr: Variant = {
 		'Chow only from the player before you. Pung, kong and Mahjong from anyone.',
 		'Your hand must be worth at least 8 fan, not counting flowers. A hand with no other fan is a Chicken Hand, worth 8.',
 		'Fans that a bigger fan already includes are not counted twice. Flowers add 1 fan each.',
+		'Out with Replacement Tile counts only for a kong replacement, not a flower replacement.',
 		'Discard win: the discarder pays 8 + the hand value, the other two pay 8. Self-draw: everyone pays 8 + the hand value.',
 		'The deal passes after every hand, win or draw. A full game is four rounds of four hands.',
 		'Account-once rule: two-chow fans (Pure Double Chow, Short Straight and so on) each need a chow that hasn’t been combined yet.'
@@ -602,6 +606,7 @@ export const mcr: Variant = {
 		{ name: 'Chicken Hand / Last Tile Draw / Last Tile Claim / Out with Replacement / Robbing the Kong', value: '8' },
 		{ name: 'Two Concealed Kongs', value: '8' },
 		{ name: 'All Pungs / Half Flush / Mixed Shifted Chows / All Types / Melded Hand / Two Dragon Pungs', value: '6' },
+		{ name: 'Melded Kong + Concealed Kong', value: '6' },
 		{ name: 'Outside Hand / Fully Concealed Hand / Two Melded Kongs / Last Tile', value: '4' },
 		{ name: 'Dragon Pung / Prevalent Wind / Seat Wind / Concealed Hand / All Chows', value: '2' },
 		{ name: 'Tile Hog / Double Pung / Two Concealed Pungs / Concealed Kong / All Simples', value: '2' },

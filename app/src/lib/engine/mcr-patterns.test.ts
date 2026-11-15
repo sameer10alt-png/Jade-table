@@ -72,11 +72,11 @@ const CASES: Case[] = [
 	// 88
 	['Big Four Winds', 'we we we ws ws ws ww ww ww wn wn wn b5 b5', 'b5', {}, ['Big Three Winds', 'All Pungs', 'Prevalent Wind', 'Seat Wind', 'Pung of Terminals or Honors', 'Little Four Winds']],
 	['Big Three Dragons', 'dr dr dr dg dg dg dw dw dw b1 b2 b3 c5 c5', 'c5', {}, ['Dragon Pung', 'Two Dragon Pungs']],
-	['All Green', 'b2 b3 b4 b2 b3 b4 b6 b6 b6 b8 b8 dg dg dg', 'b8', {}, ['Half Flush']],
+	['All Green', 'b2 b3 b4 b2 b3 b4 b6 b6 b6 b8 b8 dg dg dg', 'b8', {}, ['One Voided Suit']],
 	['Nine Gates', 'b1 b1 b1 b2 b3 b4 b5 b5 b6 b7 b8 b9 b9 b9', 'b5', {}, ['Full Flush', 'Concealed Hand', 'Pung of Terminals or Honors', 'No Honors']],
 	['Four Kongs', 'dr dr', 'dr', { melds: ['kong b1', 'kong c2', 'kong p3 concealed', 'kong we'] }, ['Three Kongs', 'Single Wait', 'All Pungs', 'Melded Kong', 'Two Melded Kongs']],
 	['Seven Shifted Pairs', 'c2 c2 c3 c3 c4 c4 c5 c5 c6 c6 c7 c7 c8 c8', 'c8', {}, ['Seven Pairs', 'Full Flush', 'Concealed Hand', 'Single Wait']],
-	['Thirteen Orphans', 'b1 b9 c1 c9 p1 p9 we ws ww wn dr dg dw dw', 'dw', {}, ['All Types', 'Concealed Hand', 'Single Wait']],
+	['Thirteen Orphans', 'b1 b9 c1 c9 p1 p9 we ws ww wn dr dg dw dw', 'dw', {}, ['All Types', 'All Terminals and Honors', 'Concealed Hand', 'Single Wait']],
 	// 64
 	['All Terminals', 'b1 b1 b1 b9 b9 b9 c1 c1 c1 c9 c9 c9 p1 p1', 'p1', {}, ['All Pungs', 'Outside Hand', 'All Terminals and Honors', 'Pung of Terminals or Honors', 'No Honors']],
 	['Little Four Winds', 'we we we ws ws ws ww ww ww wn wn b1 b2 b3', 'b3', {}, ['Big Three Winds', 'Pung of Terminals or Honors']],
@@ -124,7 +124,7 @@ const CASES: Case[] = [
 	['Last Tile Claim', CHICKEN[0], CHICKEN[1], { ...CHICKEN[2], lastTile: true }, []],
 	['Out with Replacement Tile', CHICKEN[0], CHICKEN[1], { ...CHICKEN[2], self: true, afterKong: true }, ['Self-Drawn']],
 	['Robbing the Kong', CHICKEN[0], CHICKEN[1], { ...CHICKEN[2], robbing: true }, []],
-	['Two Concealed Kongs', 'b1 b2 b3 b5 b6 b7 dr dr', 'dr', { melds: ['kong p3 concealed', 'kong c4 concealed'] }, ['Concealed Kong']],
+	['Two Concealed Kongs', 'b1 b2 b3 b5 b6 b7 dr dr', 'dr', { melds: ['kong p3 concealed', 'kong c4 concealed'] }, ['Concealed Kong', 'Two Concealed Pungs']],
 	// 6
 	['All Pungs', 'p7 p7 p7 b9 b9 b9 wn wn', 'wn', { melds: ['pung b2', 'pung c5'] }, []],
 	['Half Flush', 'b1 b2 b3 b4 b5 b6 b7 b7 b7 dr dr dr we we', 'we', {}, []],
@@ -192,5 +192,28 @@ describe('every International scoring pattern', () => {
 		expect(mcrSpecial(c('b1 b9 c1 c9 p1 p9 we ws ww wn dr dg dw dw'), 0, 0)).toBe('orphans');
 		expect(mcrSpecial(c('b1 b1 b5 b5 c2 c2 c8 c8 p3 p3 p6 p6 dr dr'), 0, 0)).toBe('pairs');
 		expect(mcrSpecial(c('b1 b4 b7 c2 c5 c8 p3 p6 b9 dr dr dr we we'), 0, 0)).toBe(null);
+	});
+});
+
+describe('rulebook checks (MCR 2006)', () => {
+	it('All Green combines with Half Flush', () => {
+		const r = score('b2 b3 b4 b2 b3 b4 b6 b6 b6 b8 b8 dg dg dg', 'b8');
+		expect(has(r.names, 'All Green')).toBe(true);
+		expect(has(r.names, 'Half Flush')).toBe(true);
+	});
+	it('All Terminals still scores Double Pung', () => {
+		const r = score('b1 b1 b1 b9 b9 b9 c1 c1 c1 c9 c9 c9 p1 p1', 'p1');
+		expect(has(r.names, 'Double Pung')).toBe(true);
+	});
+	it('one melded kong and one concealed kong are 6 points', () => {
+		const r = score('b1 b2 b3 b5 b6 b7 dr dr', 'dr', { melds: ['kong p3 concealed', 'kong c4'] });
+		const k = r.lines.find((l) => l.name.startsWith('Melded Kong + Concealed Kong'));
+		expect(k?.value).toBe(6);
+		expect(has(r.names, 'Concealed Kong')).toBe(false);
+		expect(has(r.names, 'Melded Kong')).toBe(false);
+	});
+	it('Last Tile counts your own exposed pung as visible', () => {
+		const r = score('b5 b6 b7 c4 c5 c6 dr dr', 'b7', { melds: ['pung b7', 'chow p1'], seen: [] });
+		expect(has(r.names, 'Last Tile')).toBe(true);
 	});
 });
