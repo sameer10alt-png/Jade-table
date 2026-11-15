@@ -4,7 +4,7 @@
 	import { APP_NAME } from '#lib/brand.ts';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import { account, loadAccount, signIn } from '#lib/online/account.svelte.ts';
+	import { account, loadAccount } from '#lib/online/account.svelte.ts';
 	import { startNotify, stopNotify } from '#lib/online/friends.svelte.ts';
 	import Bell from '#lib/components/Bell.svelte';
 	import Toasts from '#lib/components/Toasts.svelte';
@@ -56,8 +56,8 @@
 							<span>{account.user.name.slice(0, 1).toUpperCase()}</span>
 						{/if}
 					</a>
-				{:else if account.enabled && account.google}
-					<button class="signin desk" onclick={() => signIn()}>Sign in</button>
+				{:else if account.enabled}
+					<a class="signin desk" href="/signin?next={encodeURIComponent(page.url.pathname)}">Sign in</a>
 				{/if}
 				<button class="burger" class:on={menu} aria-label="Menu" aria-expanded={menu} onclick={() => (menu = !menu)}>
 					{#if menu}
@@ -83,8 +83,8 @@
 								</span>
 								<span>{account.user.name}<small>Your account</small></span>
 							</a>
-						{:else if account.enabled && account.google}
-							<button class="signin wide" onclick={() => signIn()}>Sign in with Google</button>
+						{:else if account.enabled}
+							<a class="signin wide" href="/signin?next={encodeURIComponent(page.url.pathname)}">Sign in</a>
 						{/if}
 					</div>
 				{/if}
@@ -187,6 +187,8 @@
 		color: var(--felt-ink);
 		font: 700 0.9rem var(--font);
 		cursor: pointer;
+		text-decoration: none;
+		display: inline-block;
 	}
 	.burger {
 		display: none;
@@ -259,6 +261,8 @@
 		color: var(--ink-2);
 	}
 	.signin.wide {
+		display: block;
+		text-align: center;
 		margin: 6px 0 0;
 		padding: 13px;
 		font-size: 1rem;

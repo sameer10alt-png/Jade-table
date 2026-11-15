@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { APP_NAME } from '#lib/brand.ts';
-	import { account, loadAccount, signIn } from '#lib/online/account.svelte.ts';
+	import { account, loadAccount } from '#lib/online/account.svelte.ts';
 	import { useFriendLink, whoSentLink } from '#lib/online/friends.svelte.ts';
 
 	const token = $derived(page.params.token ?? '');
@@ -65,8 +65,8 @@
 				<h1>{sender.name} invited you to {APP_NAME}</h1>
 				<p class="muted">Mahjong in the browser: Riichi, Taiwanese and Bombay, with friends or bots. Sign in, then accept to become friends.</p>
 				<span class="row">
-					{#if account.enabled && account.google}
-						<button class="btn primary" onclick={() => signIn(location.pathname)}>Sign in with Google</button>
+					{#if account.enabled}
+						<a class="btn primary" href="/signin?next={encodeURIComponent(page.url.pathname)}">Sign in</a>
 					{/if}
 					<a class="btn" href="/">Just play as a guest</a>
 				</span>
