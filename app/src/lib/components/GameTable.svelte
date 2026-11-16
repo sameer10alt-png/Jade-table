@@ -125,8 +125,11 @@
 		const known = handTiles.filter((t) => pos.has(t.id)).sort((a, b) => pos.get(a.id)! - pos.get(b.id)!);
 		return [...known, ...handTiles.filter((t) => !pos.has(t.id))];
 	});
+	// "Sort tiles": suits in order, numbers low to high, then winds, dragons and flowers.
+	// On a hand that's already sorted, the button groups your sets instead.
+	const isSuitSorted = $derived(hand.map((t) => t.id).join() === sortTiles(handTiles).map((t) => t.id).join());
 	function organise() {
-		order = organiseTiles(handTiles).map((t) => t.id);
+		order = (isSuitSorted ? organiseTiles(handTiles) : sortTiles(handTiles)).map((t) => t.id);
 	}
 	let dragId = $state<number | null>(null);
 	function dropOn(targetId: number) {
@@ -389,7 +392,7 @@
 
 			<div class="actions">
 				{#if hand.length > 1}
-					<button class="btn organise" onclick={organise} title="Group your sets together (or drag tiles to rearrange)">Organise tiles</button>
+					<button class="btn organise" onclick={organise} title="Sort by suit and number. Press again to group your sets. You can also drag tiles.">{isSuitSorted ? 'Group sets' : 'Sort tiles'}</button>
 				{/if}
 				{#if game.phase === 'claim' && L.claims.length}
 					<span class="claimed"><Tile tile={game.claim!.tile} size="md" glow /></span>
