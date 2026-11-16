@@ -10,9 +10,19 @@ import { VARIANTS } from '../../app/src/lib/engine/game';
 import { fillProfile, seeded, type Profile } from '../../app/src/lib/online/profile';
 
 /** alone and nobody else online: players "join" at these times and the table starts at START */
-const FAST = { joins: [900, 1900, 2900], start: 3600 };
+const FAST_BASE = { joins: [900, 1900, 2900], start: 3600 };
+const FAST = { ...FAST_BASE, joins: [...FAST_BASE.joins] };
 /** alone but other people are online (one of them might join): a little longer */
-const SLOW = { joins: [5_000, 8_500, 11_500], start: 13_000 };
+const SLOW_BASE = { joins: [5_000, 8_500, 11_500], start: 13_000 };
+const SLOW = { ...SLOW_BASE, joins: [...SLOW_BASE.joins] };
+/** admin: how quickly empty seats fill (1 = normal, 2 = twice as slow, 0.5 = twice as fast) */
+export function setFillPace(mult: number) {
+	const m = Math.max(0.5, Math.min(6, mult));
+	FAST.joins = FAST_BASE.joins.map((x) => x * m);
+	FAST.start = FAST_BASE.start * m;
+	SLOW.joins = SLOW_BASE.joins.map((x) => x * m);
+	SLOW.start = SLOW_BASE.start * m;
+}
 /** with 2-3 real people: start this long after the last one arrived */
 const GROUP_SETTLE = 3_000;
 /** a waiting page checks in every ~2 s; silent this long = they left */

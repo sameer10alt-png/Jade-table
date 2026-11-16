@@ -37,6 +37,8 @@ export async function migrateProgress() {
 			created_at timestamptz not null default now()
 		)`);
 	await db.query(`create index if not exists rating_events_user on rating_events (user_id, created_at desc)`);
+	await db.query(`alter table rating_events add column if not exists variant text`);
+	await db.query(`create index if not exists rating_events_time on rating_events (created_at)`);
 	await db.query(`create unique index if not exists rating_events_key on rating_events (user_id, hand_key)`);
 	await db.query(`
 		create table if not exists diagnostics (
@@ -106,14 +108,14 @@ async function ratingOf(userId: number): Promise<number> {
 }
 
 /** Save one rated hand for one account. Returns the new rating, or null if already counted. */
-async function applyHand(userId: number, outcome: HandOutcome, delta: number, source: string, key: string) {
+async function applyHand(userId: number, outcome: HandOutcome, delta: number, source: string, key: string, variant: string | null = null) {
 	const db = getDb()!;
 	const before = await ratingOf(userId);
 	const after = Math.max(0, before + delta);
 	const ins = await db.query<{ id: number }>(
-		`insert into rating_events (user_id, outcome, delta, rating, source, hand_key)
-		 values ($1, $2, $3, $4, $5, $6) on conflict (user_id, hand_key) do nothing returning id`,
-		[userId, outcome, after - before, after, source, key]
+		`insert into rating_events (user_id, outcome, delta, rating, source, hand_key, variant)
+		 values ($1, $2, $3, $4, $5, $6, $7) on conflict (user_id, hand_key) do nothing returning id`,
+		[userId, outcome, after - before, after, source, key, variant]
 	);
 	if (!ins.rows.length) return null;
 	const col = outcome === 'win' ? 'wins' : outcome === 'draw' ? 'draws' : 'losses';
@@ -151,7 +153,7 @@ export async function rateOnlineHand(room: Room) {
 	const source = humans >= 2 ? 'online' : 'bots';
 	await Promise.all(
 		ids.map((id, i) =>
-			id === null ? null : applyHand(id, outcomes[i], deltas[i], source, `${room.code}:${g.opts.seed}:${g.handNo}`).catch((e) => console.error('rating', e))
+			id === null ? null : applyHand(id, outcomes[i], deltas[i], source, `${room.code}:${g.opts.seed}:${g.handNo}`, g.opts.variant).catch((e) => console.error('rating', e))
 		)
 	);
 }
@@ -249,7 +251,8 @@ export async function handleProgress(req: IncomingMessage, res: ServerResponse, 
 			}))
 		];
 		const delta = handDeltas(seats, K_BOTS)[0];
-		const r = await applyHand(user.id, outcome, delta, 'bots', `offline:${key}`);
+		const variant = ['riichi', 'taiwanese', 'bombay', 'international'].includes(String(b.variant)) ? String(b.variant) : null;
+		const r = await applyHand(user.id, outcome, delta, 'bots', `offline:${key}`, variant);
 		send(res, 200, r ? { ...r, rank: rankFor(r.after).name } : { duplicate: true });
 		return true;
 	}

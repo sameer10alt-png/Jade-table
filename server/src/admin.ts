@@ -7,6 +7,8 @@
 // Every admin action is written to admin_log.
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { currentUser, getDb, type User } from './accounts';
+import { setTimeLimits } from './core/table';
+import { setFillPace } from './quick';
 
 export interface LiveTable {
 	code: string;
@@ -27,8 +29,35 @@ export interface AdminLive {
 }
 
 // ---- site settings (cached; read on every request by other modules) ----
-const settings = { maintenance: null as string | null, dragon: true };
+const settings = {
+	maintenance: null as string | null,
+	dragon: true,
+	/** online turn clock, seconds */
+	turnSeconds: 30,
+	/** online claim window, seconds */
+	claimSeconds: 15,
+	/** Dragon questions + reviews per player per day */
+	dragonLimit: 80,
+	/** quick match: how long before empty seats fill (1 = normal) */
+	fillPace: 1
+};
 export const siteSettings = () => settings;
+const NUMERIC = { turnSeconds: [10, 120], claimSeconds: [5, 60], dragonLimit: [0, 1000], fillPace: [0.5, 6] } as const;
+function applyLive() {
+	setTimeLimits(settings.turnSeconds, settings.claimSeconds);
+	setFillPace(settings.fillPace);
+}
+
+/** count one Dragon use (question or game review) for the stats */
+export function noteDragonUse(userId: number, kind: 'ask' | 'review') {
+	getDb()
+		?.query(
+			`insert into dragon_usage (day, user_id, kind, n) values (current_date, $1, $2, 1)
+			 on conflict (day, user_id, kind) do update set n = dragon_usage.n + 1`,
+			[userId, kind]
+		)
+		.catch(() => {});
+}
 
 export async function migrateAdmin() {
 	const db = getDb();
@@ -55,11 +84,21 @@ export async function migrateAdmin() {
 			detail jsonb,
 			created_at timestamptz not null default now()
 		)`);
+	await db.query(`
+		create table if not exists dragon_usage (
+			day date not null,
+			user_id bigint not null,
+			kind text not null,
+			n integer not null default 0,
+			primary key (day, user_id, kind)
+		)`);
 	const { rows } = await db.query<{ key: string; value: unknown }>(`select key, value from site_settings`);
 	for (const r of rows) {
 		if (r.key === 'maintenance') settings.maintenance = typeof r.value === 'string' && r.value ? r.value : null;
 		if (r.key === 'dragon') settings.dragon = r.value !== false;
+		if (r.key in NUMERIC && typeof r.value === 'number') (settings as Record<string, unknown>)[r.key] = r.value;
 	}
+	applyLive();
 }
 
 async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -234,6 +273,97 @@ export async function handleAdmin(req: IncomingMessage, res: ServerResponse, url
 		return send(ok ? 200 : 404, ok ? { ok: true } : { error: 'Table not found' });
 	}
 
+	// ---- charts: the last 14 days ----
+	if (path === '/charts' && req.method === 'GET') {
+		const series = async (sql: string) => {
+			const { rows } = await db.query<{ day: string | Date; n: string }>(sql);
+			const map = new Map(rows.map((r) => [new Date(r.day).toISOString().slice(0, 10), Number(r.n)]));
+			return days.map((d) => map.get(d) ?? 0);
+		};
+		const days = Array.from({ length: 14 }, (_, i) => new Date(Date.now() - (13 - i) * 86_400_000).toISOString().slice(0, 10));
+		const since = `now() - interval '14 days'`;
+		const byVariant = await db.query<{ variant: string | null; source: string; n: string }>(
+			`select variant, source, count(*) as n from rating_events where created_at > now() - interval '7 days' group by variant, source`
+		);
+		const topWeek = await db.query<{ name: string; hands: string; wins: string }>(
+			`select u.name, count(*) as hands, count(*) filter (where e.outcome = 'win') as wins
+			   from rating_events e join users u on u.id = e.user_id
+			  where e.created_at > now() - interval '7 days'
+			  group by u.name order by hands desc limit 10`
+		);
+		return send(200, {
+			days,
+			signups: await series(`select date_trunc('day', created_at) as day, count(*) as n from users where created_at > ${since} group by 1`),
+			hands: await series(`select date_trunc('day', created_at) as day, count(*) as n from rating_events where created_at > ${since} group by 1`),
+			onlineHands: await series(`select date_trunc('day', created_at) as day, count(*) as n from rating_events where source <> 'bots' and created_at > ${since} group by 1`),
+			activePlayers: await series(`select date_trunc('day', created_at) as day, count(distinct user_id) as n from rating_events where created_at > ${since} group by 1`),
+			dragon: await series(`select day, sum(n) as n from dragon_usage where day > current_date - 14 group by day`),
+			byVariant: byVariant.rows.map((r) => ({ variant: r.variant ?? 'unknown', online: r.source !== 'bots', n: Number(r.n) })),
+			topWeek: topWeek.rows.map((r) => ({ name: r.name, hands: Number(r.hands), wins: Number(r.wins) }))
+		});
+	}
+
+	// ---- one player in detail ----
+	const detailM = path.match(/^\/users\/(\d+)$/);
+	if (detailM && req.method === 'GET') {
+		const id = Number(detailM[1]);
+		const u = await db.query(
+			`select id, name, email, username, picture, skill, created_at, last_seen, wins, losses, draws, is_admin, banned from users where id = $1`,
+			[id]
+		);
+		if (!u.rows[0]) return send(404, { error: 'No such player' });
+		const q = async <T,>(sql: string) => (await db.query<T & Record<string, unknown>>(sql, [id])).rows;
+		const byVariant = await q<{ variant: string | null; hands: string; wins: string }>(
+			`select variant, count(*) as hands, count(*) filter (where outcome = 'win') as wins from rating_events where user_id = $1 group by variant`
+		);
+		const recent = await q(`select outcome, source, variant, created_at from rating_events where user_id = $1 order by id desc limit 20`);
+		const dragon = await q<{ kind: string; total: string; week: string }>(
+			`select kind, sum(n) as total, sum(n) filter (where day > current_date - 7) as week from dragon_usage where user_id = $1 group by kind`
+		);
+		const count = async (sql: string) => Number((await q<{ n: string }>(sql))[0]?.n ?? 0);
+		return send(200, {
+			user: { ...u.rows[0], id },
+			byVariant: byVariant.map((r) => ({ variant: r.variant ?? 'unknown', hands: Number(r.hands), wins: Number(r.wins) })),
+			recent,
+			dragon: dragon.map((r) => ({ kind: r.kind, total: Number(r.total), week: Number(r.week ?? 0) })),
+			reports: await count(`select count(*) as n from diagnostics where user_id = $1`),
+			friends: await count(`select count(*) as n from friendships where status = 'accepted' and (user_a = $1 or user_b = $1)`),
+			sessions: await count(`select count(*) as n from sessions where user_id = $1 and expires_at > now()`)
+		});
+	}
+
+	// ---- export everyone as a spreadsheet ----
+	if (path === '/users.csv' && req.method === 'GET') {
+		const { rows } = await db.query<Record<string, unknown>>(
+			`select id, name, email, username, skill, created_at, last_seen, wins, losses, draws, is_admin, banned from users order by id`
+		);
+		const cols = ['id', 'name', 'email', 'username', 'skill', 'created_at', 'last_seen', 'wins', 'losses', 'draws', 'is_admin', 'banned'];
+		const cell = (v: unknown) => {
+			const t = v instanceof Date ? v.toISOString() : v === null || v === undefined ? '' : String(v);
+			// keep spreadsheet apps from running anything that looks like a formula
+			const safe = /^[=+\-@]/.test(t) ? `'${t}` : t;
+			return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+		};
+		const csv = [cols.join(','), ...rows.map((r) => cols.map((c) => cell(r[c])).join(','))].join('\n');
+		await log('export-users', { rows: rows.length });
+		res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="pung-table-players.csv"', 'cache-control': 'no-store' });
+		res.end(csv);
+		return true;
+	}
+
+	// ---- bots (filled seats) ----
+	if (path === '/bots' && req.method === 'GET') {
+		const { rows } = await db.query(`select name, hands, wins, created_at from bot_stats order by hands desc`);
+		return send(200, { bots: rows });
+	}
+	if (path === '/bots/reset' && req.method === 'POST') {
+		const b = await readBody(req);
+		if (typeof b.name === 'string' && b.name) await db.query(`delete from bot_stats where name = $1`, [b.name]);
+		else await db.query(`delete from bot_stats`);
+		await log('reset-bots', { name: b.name ?? 'all' });
+		return send(200, { ok: true });
+	}
+
 	// ---- settings ----
 	if (path === '/settings' && req.method === 'POST') {
 		const b = await readBody(req);
@@ -246,6 +376,15 @@ export async function handleAdmin(req: IncomingMessage, res: ServerResponse, url
 			settings.dragon = b.dragon !== false;
 			await db.query(`insert into site_settings (key, value) values ('dragon', $1) on conflict (key) do update set value = $1`, [JSON.stringify(settings.dragon)]);
 		}
+		for (const [key, [lo, hi]] of Object.entries(NUMERIC)) {
+			if (!(key in b)) continue;
+			const v = Number(b[key]);
+			if (!Number.isFinite(v)) return send(400, { error: `Bad value for ${key}` });
+			const val = Math.max(lo, Math.min(hi, v));
+			(settings as Record<string, unknown>)[key] = val;
+			await db.query(`insert into site_settings (key, value) values ($1, $2) on conflict (key) do update set value = $2`, [key, JSON.stringify(val)]);
+		}
+		applyLive();
 		await log('settings', b);
 		return send(200, { ok: true, settings });
 	}
