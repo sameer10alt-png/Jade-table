@@ -6,6 +6,7 @@ export interface AccountUser {
 	picture: string | null;
 	email: string | null;
 	skill?: string | null; // beginner | intermediate | advanced
+	isAdmin?: boolean;
 }
 
 export const account = $state<{

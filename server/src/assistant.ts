@@ -2,6 +2,7 @@
 // var (ASK_API_KEY); the browser never sees it. Works with any OpenAI-compatible chat API.
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { accountsEnabled, currentUser } from './accounts';
+import { siteSettings } from './admin';
 
 /** questions per account per day (protects the monthly bill) */
 const DAILY_LIMIT = 80;
@@ -58,6 +59,14 @@ Reply with JSON only, in this shape:
  "focus": "one concrete thing to work on next game"}
 Be direct and encouraging, no filler. Name tiles the way the log does. If the log has very few moves, say so briefly and keep the lists short.`;
 
+/** questions and reviews asked today, across everyone (for the admin overview) */
+export function dragonUsedToday() {
+	const today = new Date().toISOString().slice(0, 10);
+	let n = 0;
+	for (const d of daily.values()) if (d.day === today) n += d.n;
+	return n;
+}
+
 /** true when an API key is configured */
 export const assistantEnabled = () => !!KEY;
 
@@ -69,7 +78,8 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 	};
 
 	if (url.pathname === '/api/ask/status')
-		return json(200, { enabled: assistantEnabled(), needsAccount: true });
+		return json(200, { enabled: assistantEnabled() && siteSettings().dragon, needsAccount: true });
+	if (!siteSettings().dragon && req.method === 'POST') return json(503, { error: 'The Dragon is resting right now. Try again later.' });
 	if (url.pathname === '/api/ask/review' && req.method === 'POST') return review(req, json);
 	if (url.pathname !== '/api/ask' || req.method !== 'POST') return false;
 	if (!KEY) return json(503, { error: 'The assistant is not set up yet.' });

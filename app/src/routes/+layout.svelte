@@ -8,6 +8,7 @@
 	import { startNotify, stopNotify } from '#lib/online/friends.svelte.ts';
 	import Bell from '#lib/components/Bell.svelte';
 	import Toasts from '#lib/components/Toasts.svelte';
+	import Announcements from '#lib/components/Announcements.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -46,6 +47,7 @@
 				<a class="link" href="/practice" class:on={here('/practice')}>Practice<span class="new">New</span></a>
 				<a class="link" href="/ask" class:on={here('/ask')}>The Dragon<span class="new">New</span></a>
 				{#if account.user}
+					{#if account.user.isAdmin}<a class="link" href="/admin" class:on={here('/admin')}>Admin</a>{/if}
 					<a class="link" href="/progress" class:on={here('/progress')}>Progress</a>
 					<a class="link" href="/friends" class:on={here('/friends')}>Friends</a>
 					<Bell />
@@ -74,6 +76,7 @@
 						<a href="/rules/taiwanese" class:on={here('/rules')}>Rules</a>
 						<a href="/practice" class:on={here('/practice')}>Practice <span class="new">New</span></a>
 						{#if account.user}<a href="/progress" class:on={here('/progress')}>Progress</a>{/if}
+						{#if account.user?.isAdmin}<a href="/admin" class:on={here('/admin')}>Admin</a>{/if}
 						<a href="/ask" class:on={here('/ask')}>The Dragon<span class="new">New</span></a>
 						<hr />
 						{#if account.user}
@@ -99,6 +102,7 @@
 />
 
 {@render children()}
+<Announcements />
 
 <!-- outside the header on purpose: pop-ups show on the game table too -->
 {#if account.user}<Toasts />{/if}
