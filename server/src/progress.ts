@@ -243,3 +243,24 @@ export async function accountProfiles(ids: number[]) {
 	}
 	return out;
 }
+
+/** Top players by wins at online tables (checked by the server, so they can't be faked).
+ *  Solo games against the computer don't count: their results come from the browser. */
+export async function leaderboard(period: 'week' | 'all', limit = 10) {
+	const db = getDb();
+	if (!db) return [];
+	const since = period === 'week' ? `and e.created_at > now() - interval '7 days'` : '';
+	const { rows } = await db.query<{ id: number; name: string; picture: string | null; wins: string; hands: string }>(
+		`select u.id, u.name, u.picture,
+		        count(*) filter (where e.outcome = 'win') as wins,
+		        count(*) as hands
+		   from rating_events e join users u on u.id = e.user_id
+		  where e.source <> 'bots' ${since}
+		  group by u.id, u.name, u.picture
+		 having count(*) filter (where e.outcome = 'win') > 0
+		  order by wins desc, hands asc, u.id asc
+		  limit $1`,
+		[limit]
+	);
+	return rows.map((r) => ({ name: r.name, picture: r.picture, wins: Number(r.wins), hands: Number(r.hands) }));
+}

@@ -16,7 +16,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { isTableCode, makeTableCode, type ServerMsg, type TableSettings } from '../../app/src/lib/online/protocol';
 import { accountPid, currentUser, getDb, handleAuth, initAccounts, SKILL_TO_LEVEL } from './accounts';
 import { handleAsk } from './assistant';
-import { accountProfiles, handleProgress, migrateProgress, rateOnlineHand } from './progress';
+import { accountProfiles, handleProgress, leaderboard, migrateProgress, rateOnlineHand } from './progress';
 import { forgetMember, makeStore, myTables, rememberMember, type TableStore } from './storage';
 import { handleFriends } from './friends';
 import { handleNotifications, noteJoined } from './notifications';
@@ -107,6 +107,7 @@ async function newCode() {
 // Quick match: the matched players are seated at a new table that starts by itself once they
 // arrive, or after QUICK_ARRIVE (whoever isn't there by then is covered by a bot).
 const QUICK_ARRIVE = 15_000;
+const boardCache = new Map<string, { at: number; data: unknown }>();
 const quick = new QuickQueue(async (variant, players, fill) => {
 	const code = await newCode();
 	const t = new NodeTable(null);
@@ -244,6 +245,16 @@ const server = createServer(async (req, res) => {
 				return sendJson(res, 200, { ok: true });
 			}
 			return sendJson(res, 200, qm[1] === 'now' ? await quick.now(pid) : await quick.status(pid));
+		}
+
+		// Leaderboard: most online wins, this week or all time (cached for a minute)
+		if (url.pathname === '/api/leaderboard' && req.method === 'GET') {
+			const period = url.searchParams.get('period') === 'week' ? 'week' : 'all';
+			const hit = boardCache.get(period);
+			if (hit && Date.now() - hit.at < 60_000) return sendJson(res, 200, hit.data);
+			const data = { period, players: await leaderboard(period) };
+			boardCache.set(period, { at: Date.now(), data });
+			return sendJson(res, 200, data);
 		}
 
 		// Profiles of the players at a table (picture + record), for the seat cards
