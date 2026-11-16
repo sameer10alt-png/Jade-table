@@ -9,6 +9,7 @@ import { botAction } from '../../../app/src/lib/engine/bots';
 import { applyAction, BOT_NAMES, legal, newGame, pendingSeats, VARIANTS } from '../../../app/src/lib/engine/game';
 import type { Action, BotLevel, GameState } from '../../../app/src/lib/engine/types';
 import { fillProfile, type Profile } from '../../../app/src/lib/online/profile';
+import { logMove, type LoggedMove } from '../../../app/src/lib/review-log';
 import {
 	redactFor,
 	type ClientMsg,
@@ -45,6 +46,8 @@ export interface Room {
 	fillNames?: string[];
 	/** made-up profiles for the filled seats, by name (quick match), and by seat once the game starts */
 	fillProfiles?: Profile[];
+	/** each person's graded discards this game, for "Review my play" */
+	moveLog?: Record<string, LoggedMove[]>;
 	botProfiles?: (Profile | null)[];
 	/** last hand that was rated, so each hand counts once */
 	ratedKey?: string;
@@ -234,6 +237,14 @@ export class TableCore {
 				const g = r.game;
 				if (!g || seat < 0) return reply({ type: 'error', message: 'You are not seated at this game' });
 				if (msg.action?.t === 'next') return; // hands advance through "ready"
+				if (msg.action?.t === 'discard' && g.phase === 'turn' && g.turn === seat) {
+					try {
+						const m = logMove(g, seat, msg.action.tile);
+						if (m) ((r.moveLog ??= {})[pid] ??= []).push(m);
+					} catch {
+						/* grading is a nice-to-have; never block the move */
+					}
+				}
 				try {
 					r.game = applyAction(g, seat, msg.action);
 				} catch (e) {
@@ -291,6 +302,16 @@ export class TableCore {
 		r.status = 'playing';
 		r.ready = [];
 		r.deadlineKey = '';
+		r.moveLog = {};
+	}
+
+	/** your graded discards from hands that are over (never the hand still being played) */
+	movesFor(pid: string): LoggedMove[] {
+		const r = this.room;
+		const g = r?.game;
+		if (!r || !g) return [];
+		const done = g.phase === 'ended' || g.phase === 'gameover';
+		return (r.moveLog?.[pid] ?? []).filter((m) => m.handNo < g.handNo || done);
 	}
 
 	/** the profile of a filled seat (null if it is a person's or the game hasn't started) */

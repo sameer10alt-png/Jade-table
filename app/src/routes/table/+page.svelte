@@ -4,10 +4,11 @@
 	import { onMount } from 'svelte';
 	import GameTable from '#lib/components/GameTable.svelte';
 	import GameReview from '#lib/components/GameReview.svelte';
-	import type { GameReviewData, MoveReview } from '#lib/components/GameReview.svelte';
+	import type { GameReviewData } from '#lib/components/GameReview.svelte';
+	import { buildReviewData, gameLog, logMove, type HandResult, type LoggedMove } from '#lib/review-log.ts';
 	import DiagnosticReportView from '#lib/components/DiagnosticReport.svelte';
 	import { botAction, botActionAt, reviewDiscard } from '#lib/engine/bots.ts';
-	import { applyAction, legal, newGame, pendingSeats } from '#lib/engine/game.ts';
+	import { applyAction, legal, newGame, pendingSeats, VARIANTS } from '#lib/engine/game.ts';
 	import {
 		ASSESS_HANDS,
 		buildDiagnostic,
@@ -30,7 +31,9 @@
 	let autoplay = $state(false);
 
 	// ---- play review (chess.com-style): record each of my discards, grade them at the end ----
-	let myDiscards: { state: GameState; tile: number; handNo: number }[] = [];
+	let myDiscards: LoggedMove[] = [];
+	/** each finished hand's result for you, for the Dragon's review */
+	let myResults: HandResult[] = [];
 	let discardCount = $state(0);
 	let showReview = $state(false);
 	let reviewData = $state<GameReviewData | null>(null);
@@ -74,6 +77,8 @@
 		const key = `${g.opts.seed}:${g.handNo}`;
 		if (handled.has(key) || !g.result) return;
 		handled.add(key);
+		const res = outcomesOf(g.result, g.players.length)[ME];
+		if (!myResults.some((x) => x.handNo === g.handNo)) myResults.push({ handNo: g.handNo, outcome: res, delta: g.result.deltas[ME] ?? 0 });
 		const skip = botPlayedThisHand || autoplay;
 		botPlayedThisHand = false;
 		if (skip) {
@@ -125,40 +130,8 @@
 		if (autoplay) botPlayedThisHand = true;
 	});
 
-	const RANK: Record<string, number> = { blunder: 0, mistake: 1, amazing: 2, great: 3, inaccuracy: 4, good: 5, best: 6 };
-
 	function buildReview(): GameReviewData {
-		const counts = { amazing: 0, great: 0, best: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
-		const notable: MoveReview[] = [];
-		for (const d of myDiscards) {
-			const r = reviewDiscard(d.state, ME, d.tile);
-			if (!r) continue;
-			counts[r.grade]++;
-			if (r.grade !== 'best' && r.grade !== 'good')
-				notable.push({ handNo: d.handNo, chosenK: r.chosenK, bestK: r.bestK, grade: r.grade, reason: r.reason });
-		}
-		const total = counts.amazing + counts.great + counts.best + counts.good + counts.inaccuracy + counts.mistake + counts.blunder;
-		const goodMoves = counts.amazing + counts.great + counts.best + counts.good;
-		const accuracy = total ? Math.round((goodMoves / total) * 100) : 100;
-		// highlights (brilliant/great) first, then worst mistakes
-		notable.sort((a, b) => RANK[a.grade] - RANK[b.grade]);
-
-		// one-line verdict
-		let verdict: string;
-		if (counts.blunder >= 3) verdict = 'Rough one — too many tiles into live hands.';
-		else if (counts.blunder || counts.mistake >= 3) verdict = 'Mixed game — some costly discards to clean up.';
-		else if (counts.amazing) verdict = 'Brilliant game — great reads under pressure.';
-		else if (accuracy >= 90) verdict = 'Sharp game — you played near-expert.';
-		else if (accuracy >= 75) verdict = 'Solid game — a few spots to tighten.';
-		else verdict = 'Keep at it — focus on efficient, safe discards.';
-
-		const tips: string[] = [];
-		if (counts.blunder) tips.push('Safety first when someone’s close: watch for players who’ve stopped discarding middle tiles, and switch to tiles they’ve already thrown.');
-		if (counts.mistake >= 2) tips.push('Keep tiles that work together — let go of lone honours and terminals early instead of breaking a near-complete shape.');
-		if (notable.some((m) => /outs|improved/.test(m.reason))) tips.push('Count your outs — keep the shape that leaves the most tiles to draw toward a win.');
-		if (!tips.length) tips.push(accuracy >= 90 ? 'You matched the expert most of the time. Bump the bots up a level.' : 'Push your efficient discards and you’ll climb fast.');
-
-		return { total, counts, accuracy, verdict, notable: notable.slice(0, 8), tips: tips.slice(0, 2) };
+		return buildReviewData(myDiscards);
 	}
 
 	function openReview() {
@@ -204,7 +177,8 @@
 		try {
 			// record my own discards (with the pre-move state) so we can grade them later
 			if (seat === ME && action.t === 'discard' && legal(game, ME).discard?.includes(action.tile)) {
-				myDiscards.push({ state: structuredClone(game), tile: action.tile, handNo: game.handNo });
+				const m = logMove(game, ME, action.tile);
+				if (m) myDiscards.push(m);
 				discardCount = myDiscards.length;
 			}
 			if (seat === ME && !autoplay) trackMove(game, action);
@@ -250,6 +224,7 @@
 	function playAgain() {
 		if (!game) return;
 		myDiscards = [];
+		myResults = [];
 		discardCount = 0;
 		showReview = false;
 		game = newGame({ ...game.opts, seed: Math.floor(Math.random() * 2 ** 31) });
@@ -280,7 +255,7 @@
 		<button class="review-fab" onclick={openReview}>Review my play</button>
 	{/if}
 	{#if showReview && reviewData}
-		<GameReview data={reviewData} onClose={() => (showReview = false)} />
+		<GameReview data={reviewData} log={() => gameLog(VARIANTS[game!.opts.variant]?.name ?? game!.opts.variant, myDiscards, myResults)} onClose={() => (showReview = false)} />
 	{/if}
 	{#if assess}
 		<div class="assess-pill">Assessment · hand {Math.min(assess.hands.length + 1, ASSESS_HANDS)} of {ASSESS_HANDS}</div>

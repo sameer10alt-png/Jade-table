@@ -48,6 +48,16 @@ Pung Table offers four variants: International Mahjong (Mahjong Competition Rule
 Help players with rules, scoring, etiquette, and strategy (efficiency, waits, defense, when to call). Prefer short, clear answers with a concrete example when useful. If asked which tile to keep or discard, explain the reasoning (shape, useful tiles, safety), not just the answer.
 Stay on mahjong and this site. If asked something unrelated, say you only help with mahjong. Never claim to see the player's live hand unless they describe it.`;
 
+const REVIEW_SYSTEM = `You are the Dragon, Pung Table's mahjong coach. You are reviewing one finished game played by the user.
+You get a log of each of their discards: the hand they held, what they threw, an engine grade (amazing, great, best, good, inaccuracy, mistake, blunder), the engine's preferred tile when different, and a short engine note, plus each hand's result.
+Trust the engine grades and notes for what was right or wrong; your job is to explain them in plain words and find the patterns.
+Reply with JSON only, in this shape:
+{"summary": "2 sentences on how the game went overall",
+ "good": ["up to 3 specific things they did well, naming the hand, move and tiles"],
+ "bad": ["up to 3 specific mistakes, naming the hand, move and tiles, and what to do instead and why"],
+ "focus": "one concrete thing to work on next game"}
+Be direct and encouraging, no filler. Name tiles the way the log does. If the log has very few moves, say so briefly and keep the lists short.`;
+
 /** true when an API key is configured */
 export const assistantEnabled = () => !!KEY;
 
@@ -60,6 +70,7 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 
 	if (url.pathname === '/api/ask/status')
 		return json(200, { enabled: assistantEnabled(), needsAccount: true });
+	if (url.pathname === '/api/ask/review' && req.method === 'POST') return review(req, json);
 	if (url.pathname !== '/api/ask' || req.method !== 'POST') return false;
 	if (!KEY) return json(503, { error: 'The assistant is not set up yet.' });
 	// signed-in players only
@@ -108,5 +119,73 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 	} catch (e) {
 		console.error('ask failed', (e as Error).message);
 		return json(502, { error: 'The assistant is unavailable right now.' });
+	}
+}
+
+/** "Review with the Dragon": read the game log and say what was good and what to fix */
+async function review(req: IncomingMessage, json: (status: number, data: unknown) => boolean): Promise<boolean> {
+	if (!KEY) return json(503, { error: 'The Dragon is not set up yet.' });
+	const user = accountsEnabled() ? await currentUser(req) : null;
+	if (!user) return json(401, { error: 'Sign in to get a review from the Dragon.', needSignIn: true });
+	const today = new Date().toISOString().slice(0, 10);
+	const d = daily.get(user.id);
+	const used = d?.day === today ? d.n : 0;
+	if (used >= DAILY_LIMIT) return json(429, { error: 'You have reached today’s Dragon limit. Come back tomorrow.' });
+
+	let body = '';
+	for await (const c of req) {
+		body += c;
+		if (body.length > 20000) return json(413, { error: 'That game log is too long.' });
+	}
+	let data: { log?: string };
+	try {
+		data = JSON.parse(body || '{}');
+	} catch {
+		return json(400, { error: 'Bad request.' });
+	}
+	const log = typeof data.log === 'string' ? data.log.slice(0, 16000) : '';
+	if (!/Move \d+:/.test(log)) return json(400, { error: 'Play a few moves first, then ask for a review.' });
+	daily.set(user.id, { day: today, n: used + 1 });
+
+	try {
+		const r = await fetch(`${BASE}/chat/completions`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', authorization: `Bearer ${KEY}` },
+			body: JSON.stringify({
+				model: MODEL,
+				messages: [
+					{ role: 'system', content: REVIEW_SYSTEM },
+					{ role: 'user', content: log }
+				],
+				response_format: { type: 'json_object' },
+				max_tokens: 2500
+			})
+		});
+		if (!r.ok) {
+			console.error('review upstream', r.status, (await r.text()).slice(0, 200));
+			return json(502, { error: 'The Dragon is unavailable right now.' });
+		}
+		const j = (await r.json()) as { choices?: { message?: { content?: string } }[] };
+		const raw = j?.choices?.[0]?.message?.content ?? '';
+		const parsed = parseReview(raw);
+		if (!parsed) return json(502, { error: 'The Dragon got muddled. Try again.' });
+		return json(200, parsed);
+	} catch (e) {
+		console.error('review failed', (e as Error).message);
+		return json(502, { error: 'The Dragon is unavailable right now.' });
+	}
+}
+
+export function parseReview(raw: string) {
+	const m = raw.match(/\{[\s\S]*\}/);
+	if (!m) return null;
+	try {
+		const o = JSON.parse(m[0]) as { summary?: unknown; good?: unknown; bad?: unknown; focus?: unknown };
+		const list = (x: unknown) => (Array.isArray(x) ? x.filter((s) => typeof s === 'string' && s.trim()).slice(0, 4).map((s) => String(s).slice(0, 600)) : []);
+		const summary = typeof o.summary === 'string' ? o.summary.slice(0, 800) : '';
+		if (!summary) return null;
+		return { summary, good: list(o.good), bad: list(o.bad), focus: typeof o.focus === 'string' ? o.focus.slice(0, 400) : '' };
+	} catch {
+		return null;
 	}
 }
