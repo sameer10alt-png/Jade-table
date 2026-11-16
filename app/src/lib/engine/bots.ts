@@ -251,7 +251,7 @@ function openingIsWorthIt(s: GameState, seat: number, option: ClaimOption, level
 		const tanyaoPath = termHonor <= 1 && !idxTermOrHonor(i);
 		return hasYakuhaiMeld || tanyaoPath || flushPath;
 	}
-	if (v.id === 'taiwanese' || v.id === 'international') {
+	if (v.id === 'taiwanese') {
 		if (flushPath) return true;
 		if (option.type !== 'chow' && p.melds.every((m) => m.type !== 'chow') && alreadyOpen) return true;
 		return alreadyOpen && after <= 1;
