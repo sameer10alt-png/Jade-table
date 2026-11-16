@@ -200,7 +200,7 @@ const server = createServer(async (req, res) => {
 		}
 		if (url.pathname === '/healthz') return sendJson(res, 200, { ok: true, tables: tables.size });
 		if (url.pathname.startsWith('/api/progress') && (await handleProgress(req, res, url))) return;
-		if ((url.pathname === '/api/ask' || url.pathname === '/api/ask/status') && (await handleAsk(req, res, url))) return;
+		if ((url.pathname === '/api/ask' || url.pathname === '/api/ask/status' || url.pathname === '/api/ask/review') && (await handleAsk(req, res, url))) return;
 		if (
 			(url.pathname.startsWith('/auth/') ||
 				url.pathname.startsWith('/api/me') ||
@@ -255,6 +255,18 @@ const server = createServer(async (req, res) => {
 			const data = { period, players: await leaderboard(period) };
 			boardCache.set(period, { at: Date.now(), data });
 			return sendJson(res, 200, data);
+		}
+
+		// Your graded discards at a table, for "Review my play" (finished hands only)
+		const rm = url.pathname.match(/^\/api\/tables\/([A-Z0-9]{6})\/review$/);
+		if (rm && req.method === 'GET') {
+			const t = isTableCode(rm[1]) ? await getTable(rm[1]) : null;
+			// signed in: your account; a guest: their own secret guest id (account ids can't be borrowed)
+			const user = await currentUser(req);
+			const pid = user ? accountPid(user) : guestOnly(url.searchParams.get('player') ?? undefined);
+			if (!t?.core.room) return sendJson(res, 404, { error: 'No such table' });
+			if (!pid) return sendJson(res, 200, { moves: [] });
+			return sendJson(res, 200, { moves: t.core.movesFor(pid) });
 		}
 
 		// Profiles of the players at a table (picture + record), for the seat cards

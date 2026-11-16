@@ -1,27 +1,48 @@
 <script module lang="ts">
+	export type { GameReviewData, MoveReview } from '#lib/review-log.ts';
+	import type { GameReviewData } from '#lib/review-log.ts';
 	import type { DiscardGrade } from '#lib/engine/bots.ts';
-
-	export interface MoveReview {
-		handNo: number;
-		chosenK: string;
-		bestK: string;
-		grade: DiscardGrade;
-		reason: string;
-	}
-	export interface GameReviewData {
-		total: number;
-		counts: Record<DiscardGrade, number>;
-		accuracy: number;
-		verdict: string;
-		notable: MoveReview[];
-		tips: string[];
-	}
 </script>
 
 <script lang="ts">
 	import Tile from '#lib/components/Tile.svelte';
+	import { page } from '$app/state';
+	import { account } from '#lib/online/account.svelte.ts';
 
-	let { data, onClose }: { data: GameReviewData; onClose: () => void } = $props();
+	let { data, onClose, log }: { data: GameReviewData; onClose: () => void; log?: () => string } = $props();
+
+	// ---- "Review with the Dragon": send the game log, get back what was good and what to fix ----
+	type DragonReview = { summary: string; good: string[]; bad: string[]; focus: string };
+	let dragon = $state<DragonReview | null>(null);
+	let dragonBusy = $state(false);
+	let dragonErr = $state('');
+	let started = $state(0);
+	let tick = $state(0);
+	const signinHref = $derived(`/signin?next=${encodeURIComponent(page.url.pathname + page.url.search)}`);
+
+	async function askDragon() {
+		if (!log || dragonBusy) return;
+		dragonBusy = true;
+		dragonErr = '';
+		started = Date.now();
+		const timer = setInterval(() => (tick = Date.now()), 200);
+		try {
+			const r = await fetch('/api/ask/review', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ log: log() })
+			});
+			const d = await r.json().catch(() => ({}));
+			if (!r.ok) dragonErr = d.error ?? 'The Dragon is unavailable right now.';
+			else dragon = d as DragonReview;
+		} catch {
+			dragonErr = 'Couldn’t reach the Dragon. Check your connection and try again.';
+		} finally {
+			clearInterval(timer);
+			dragonBusy = false;
+		}
+	}
+	const waited = $derived(((Math.max(tick, started) - started) / 1000).toFixed(1));
 
 	const LABEL: Record<DiscardGrade, string> = {
 		amazing: 'Brilliant',
@@ -79,6 +100,31 @@
 			<p class="clean">Clean game — no clear mistakes. Try a harder bot level.</p>
 		{/if}
 
+		{#if log}
+			<div class="dragon">
+				{#if dragon}
+					<div class="tips-h">🐉 The Dragon's review</div>
+					<p class="d-sum">{dragon.summary}</p>
+					{#if dragon.good.length}
+						<div class="d-h good">What went well</div>
+						<ul>{#each dragon.good as t (t)}<li>{t}</li>{/each}</ul>
+					{/if}
+					{#if dragon.bad.length}
+						<div class="d-h bad">What to fix</div>
+						<ul>{#each dragon.bad as t (t)}<li>{t}</li>{/each}</ul>
+					{/if}
+					{#if dragon.focus}<p class="d-focus"><strong>Next game:</strong> {dragon.focus}</p>{/if}
+				{:else if !account.user}
+					<a class="btn primary dbtn" href={signinHref}>🐉 Sign in to review with the Dragon</a>
+				{:else}
+					<button class="btn primary dbtn" onclick={askDragon} disabled={dragonBusy}>
+						{dragonBusy ? `The Dragon is reading your game… ${waited}s` : '🐉 Review my game with the Dragon'}
+					</button>
+					{#if dragonErr}<p class="d-err">{dragonErr}</p>{/if}
+				{/if}
+			</div>
+		{/if}
+
 		<div class="next">
 			<a class="nx" href="/practice">
 				<strong>Take the skill test</strong>
@@ -94,6 +140,47 @@
 </div>
 
 <style>
+	.dragon {
+		margin: 16px 0;
+		padding: 14px 16px;
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--accent, #7a3) 8%, transparent);
+		border: 1px solid var(--line);
+	}
+	.dbtn {
+		width: 100%;
+		justify-content: center;
+		text-align: center;
+	}
+	.d-sum {
+		margin: 6px 0 10px;
+	}
+	.d-h {
+		font-weight: 700;
+		font-size: 0.85rem;
+		margin-top: 8px;
+	}
+	.d-h.good {
+		color: var(--good, #2f6f4e);
+	}
+	.d-h.bad {
+		color: var(--bad, #b5452b);
+	}
+	.dragon ul {
+		margin: 4px 0;
+		padding-left: 18px;
+	}
+	.dragon li {
+		margin: 3px 0;
+	}
+	.d-focus {
+		margin: 10px 0 0;
+	}
+	.d-err {
+		margin: 8px 0 0;
+		color: var(--bad, #b5452b);
+		font-size: 0.85rem;
+	}
 	.overlay {
 		position: fixed;
 		inset: 0;

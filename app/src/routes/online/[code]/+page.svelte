@@ -11,6 +11,9 @@
 	import { account, loadAccount } from '#lib/online/account.svelte.ts';
 	import FriendRow from '#lib/components/FriendRow.svelte';
 	import { addSeatFriend, friendsOverview, inviteFriend, tableFriends, type Friend, type SeatFriend } from '#lib/online/friends.svelte.ts';
+	import GameReview, { type GameReviewData } from '#lib/components/GameReview.svelte';
+	import { buildReviewData, gameLog, type HandResult, type LoggedMove } from '#lib/review-log.ts';
+	import { outcomesOf } from '#lib/ranks.ts';
 	import { tableProfiles } from '#lib/online/quick.ts';
 	import type { Profile } from '#lib/online/profile.ts';
 
@@ -28,6 +31,28 @@
 	let copied = $state(false);
 	let now = $state(Date.now());
 	const clock = setInterval(() => (now = Date.now()), 1000);
+
+	// ---- "Review my play": the server grades your discards; the Dragon explains them ----
+	let showReview = $state(false);
+	let reviewData = $state<GameReviewData | null>(null);
+	let reviewMoves: LoggedMove[] = [];
+	let myResults: HandResult[] = [];
+	$effect(() => {
+		const g = game;
+		if (!g?.result || seat === null || (g.phase !== 'ended' && g.phase !== 'gameover')) return;
+		if (!myResults.some((r) => r.handNo === g.handNo))
+			myResults.push({ handNo: g.handNo, outcome: outcomesOf(g.result, g.players.length)[seat], delta: g.result.deltas[seat] ?? 0 });
+	});
+	async function openReview() {
+		try {
+			const r = await fetch(`/api/tables/${code}/review?player=${encodeURIComponent(me.id)}`);
+			reviewMoves = ((await r.json()) as { moves?: LoggedMove[] }).moves ?? [];
+		} catch {
+			reviewMoves = [];
+		}
+		reviewData = buildReviewData(reviewMoves);
+		showReview = true;
+	}
 
 	onMount(async () => {
 		me = identity();
@@ -168,6 +193,16 @@
 		onLeave={() => goto('/')}
 		onPlayAgain={room.youAreHost ? () => conn?.send({ type: 'restart' }) : undefined}
 	/>
+	{#if game.phase === 'ended' || game.phase === 'gameover'}
+		<button class="review-fab" onclick={openReview}>Review my play</button>
+	{/if}
+	{#if showReview && reviewData}
+		<GameReview
+			data={reviewData}
+			log={() => gameLog(VARIANTS[game!.opts.variant]?.name ?? game!.opts.variant, reviewMoves, myResults)}
+			onClose={() => (showReview = false)}
+		/>
+	{/if}
 	{#if connState === 'reconnecting'}
 		<div class="toast">Connection lost. Reconnecting…</div>
 	{/if}
@@ -265,6 +300,21 @@
 {/if}
 
 <style>
+	.review-fab {
+		position: fixed;
+		left: 50%;
+		bottom: 18px;
+		transform: translateX(-50%);
+		z-index: 55;
+		font: 600 0.95rem var(--font);
+		color: var(--accent-ink);
+		background: var(--accent);
+		border: none;
+		border-radius: 999px;
+		padding: 11px 20px;
+		cursor: pointer;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+	}
 	.back {
 		display: inline-block;
 		margin: 24px 0 12px;
