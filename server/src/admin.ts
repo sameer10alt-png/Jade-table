@@ -23,6 +23,10 @@ export interface LiveTable {
 export interface AdminLive {
 	tables(): LiveTable[];
 	closeTable(code: string, message: string): Promise<boolean>;
+	/** put the admin into a bot's seat mid-game */
+	takeSeat(code: string, seat: number, admin: User): Promise<string | null>;
+	/** end the hand with this seat winning; only when no other person is at the table */
+	forceWin(code: string, seat: number, points: number, admin: User): Promise<string | null>;
 	waiting(): Record<string, number>;
 	online(): number;
 	dragonToday(): number;
@@ -362,6 +366,22 @@ export async function handleAdmin(req: IncomingMessage, res: ServerResponse, url
 		else await db.query(`delete from bot_stats`);
 		await log('reset-bots', { name: b.name ?? 'all' });
 		return send(200, { ok: true });
+	}
+
+	const takeM = path.match(/^\/tables\/([A-Z0-9]{6})\/take$/);
+	if (takeM && req.method === 'POST') {
+		const b = await readBody(req);
+		const err = await live.takeSeat(takeM[1], Number(b.seat), me);
+		await log('take-seat', { code: takeM[1], seat: b.seat, ok: !err });
+		return send(err ? 400 : 200, err ? { error: err } : { ok: true });
+	}
+	const winM = path.match(/^\/tables\/([A-Z0-9]{6})\/win$/);
+	if (winM && req.method === 'POST') {
+		const b = await readBody(req);
+		const points = Math.max(1, Math.min(100_000, Number(b.points) || 1000));
+		const err = await live.forceWin(winM[1], Number(b.seat), points, me);
+		await log('force-win', { code: winM[1], seat: b.seat, points, ok: !err });
+		return send(err ? 400 : 200, err ? { error: err } : { ok: true });
 	}
 
 	// ---- settings ----

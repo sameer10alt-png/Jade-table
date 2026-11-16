@@ -110,6 +110,29 @@ const adminLive: AdminLive = {
 		tables.delete(code);
 		return true;
 	},
+	takeSeat: async (code, seat, admin) => {
+		const t = tables.get(code) ?? (await getTable(code));
+		if (!t?.core.room) return 'Table not found';
+		let err: string | null = null;
+		await t.run(async () => {
+			err = await t.core.adminTake(seat, accountPid(admin), admin.name);
+		});
+		return err;
+	},
+	forceWin: async (code, seat, points, admin) => {
+		const t = tables.get(code) ?? (await getTable(code));
+		const r = t?.core.room;
+		if (!t || !r) return 'Table not found';
+		// test power only: never against real players
+		const me = accountPid(admin);
+		if (r.seats.some((s) => s && s.playerId !== me)) return 'Someone else is playing at this table. Instant win only works when everyone else is a bot.';
+		if (!r.game || seat < 0 || seat >= r.game.players.length) return 'No such seat';
+		let err: string | null = null;
+		await t.run(async () => {
+			err = await t.core.adminWin(seat, points);
+		});
+		return err;
+	},
 	waiting: () => quick.counts(),
 	online: () => {
 		const people = new Set<string>();
@@ -398,6 +421,16 @@ server.on('upgrade', (req, socket, head) => {
 		t.run(async () => {
 			// Signed in: the account decides who you are (a browser can't claim someone else's id).
 			const user = await currentUser(req).catch(() => null);
+			// an admin watching every hand: no seat, nothing they send is acted on
+			if (url.searchParams.get('watch') === '1') {
+				if (!user?.isAdmin) return refuse('Admins only', 4003);
+				const entry = { pid: `watch:${user.id}:${Math.random().toString(36).slice(2, 8)}`, ws };
+				t.sockets.add(entry);
+				ws.on('close', () => t.sockets.delete(entry));
+				ws.on('error', () => ws.close());
+				t.core.broadcast();
+				return;
+			}
 			const pid = user ? accountPid(user) : guestOnly(guestPid);
 			const name = user ? user.name : url.searchParams.get('name');
 			// a guest seat you held before signing in moves to your account (guest ids only)

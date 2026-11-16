@@ -6,7 +6,7 @@
 // the server runs the same engine as the browser, validates every move, drives the bots,
 // and sends each player only what they may see (redactFor).
 import { botAction } from '../../../app/src/lib/engine/bots';
-import { applyAction, BOT_NAMES, legal, newGame, pendingSeats, VARIANTS } from '../../../app/src/lib/engine/game';
+import { adminWin, applyAction, BOT_NAMES, legal, newGame, pendingSeats, VARIANTS } from '../../../app/src/lib/engine/game';
 import type { Action, BotLevel, GameState } from '../../../app/src/lib/engine/types';
 import { fillProfile, type Profile } from '../../../app/src/lib/online/profile';
 import { logMove, type LoggedMove } from '../../../app/src/lib/review-log';
@@ -46,6 +46,8 @@ export interface Room {
 	fillNames?: string[];
 	/** made-up profiles for the filled seats, by name (quick match), and by seat once the game starts */
 	fillProfiles?: Profile[];
+	/** an admin used a test power here: this game's hands don't count toward records */
+	adminTouched?: boolean;
 	/** each person's graded discards this game, for "Review my play" */
 	moveLog?: Record<string, LoggedMove[]>;
 	botProfiles?: (Profile | null)[];
@@ -310,6 +312,39 @@ export class TableCore {
 		r.moveLog = {};
 	}
 
+	// ---- admin ----
+	/** put a person (the admin) into a seat a bot is playing, mid-game */
+	async adminTake(seat: number, pid: string, name: string): Promise<string | null> {
+		const r = this.room;
+		const g = r?.game;
+		if (!r || !g) return 'That table has no game running.';
+		if (seat < 0 || seat > 3 || r.seats[seat]) return 'That seat is a person, not a bot.';
+		if (r.seats.some((s) => s?.playerId === pid)) return 'You already have a seat at this table.';
+		r.seats[seat] = { playerId: pid, name: g.players[seat].name };
+		g.players[seat].bot = null;
+		delete r.gone?.[pid];
+		void name;
+		await this.changed();
+		return null;
+	}
+
+	/** end the current hand with `seat` winning (test power) */
+	async adminWin(seat: number, points: number): Promise<string | null> {
+		const r = this.room;
+		const g = r?.game;
+		if (!r || !g) return 'That table has no game running.';
+		if (g.phase === 'ended' || g.phase === 'gameover') return 'The hand is already over.';
+		r.adminTouched = true;
+		r.game = adminWin(g, seat, points);
+		await this.changed();
+		return null;
+	}
+
+	/** everything about the game, hands included (admins watching) */
+	fullView() {
+		return this.room?.game ?? null;
+	}
+
 	/** your graded discards from hands that are over (never the hand still being played) */
 	movesFor(pid: string): LoggedMove[] {
 		const r = this.room;
@@ -480,6 +515,11 @@ export class TableCore {
 		const r = this.room;
 		if (!r) return;
 		for (const c of this.host.connections()) {
+			if (c.pid.startsWith('watch:')) {
+				// an admin watching: every hand visible, no seat
+				c.send({ type: 'state', room: this.roomInfo(c.pid), seat: null, game: r.game ? structuredClone(r.game) : null });
+				continue;
+			}
 			const seat = r.seats.findIndex((s) => s?.playerId === c.pid);
 			c.send({
 				type: 'state',
