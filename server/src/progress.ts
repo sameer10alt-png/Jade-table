@@ -46,6 +46,51 @@ export async function migrateProgress() {
 			created_at timestamptz not null default now()
 		)`);
 	await db.query(`create index if not exists diagnostics_user on diagnostics (user_id, created_at desc)`);
+	// real records for the filled seats (bots), by name, from online hands they actually played
+	await db.query(`
+		create table if not exists bot_stats (
+			name text primary key,
+			hands integer not null default 0,
+			wins integer not null default 0,
+			created_at timestamptz not null default now()
+		)`);
+}
+
+/** count one finished online hand for every bot seat at the table */
+async function recordBotHand(room: Room) {
+	const db = getDb();
+	const g = room.game;
+	if (!db || !g?.result) return;
+	const outcomes = outcomesOf(g.result, g.players.length);
+	await Promise.all(
+		g.players.map((p, i) =>
+			p.bot && !room.seats[i]
+				? db
+						.query(
+							`insert into bot_stats (name, hands, wins) values ($1, 1, $2)
+							 on conflict (name) do update set hands = bot_stats.hands + 1, wins = bot_stats.wins + $2`,
+							[p.name, outcomes[i] === 'win' ? 1 : 0]
+						)
+						.catch((e) => console.error('bot stats', e))
+				: null
+		)
+	);
+}
+
+/** real records of these filled-seat names */
+export async function botStats(names: string[]) {
+	const out = new Map<string, { hands: number; wins: number; since: string }>();
+	const db = getDb();
+	if (!db || !names.length) return out;
+	const { rows } = await db.query<{ name: string; hands: number; wins: number; created_at: string | Date }>(
+		`select name, hands, wins, created_at from bot_stats where name = any($1::text[])`,
+		[names]
+	);
+	for (const r of rows) {
+		const d = new Date(r.created_at);
+		out.set(r.name, { hands: Number(r.hands), wins: Number(r.wins), since: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` });
+	}
+	return out;
 }
 
 const startFor = (skill: string | null | undefined) => START_RATING[skill ?? ''] ?? START_RATING.intermediate;
@@ -86,6 +131,7 @@ export async function rateOnlineHand(room: Room) {
 	const db = getDb();
 	const g = room.game;
 	if (!db || !g?.result) return;
+	await recordBotHand(room);
 	const humans = room.seats.filter(Boolean).length;
 	const k = humans >= 2 ? K_ONLINE : K_BOTS; // a game of you vs bots is worth less
 	const outcomes = outcomesOf(g.result, g.players.length);

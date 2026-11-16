@@ -17,11 +17,12 @@ import { isTableCode, makeTableCode, type ServerMsg, type TableSettings } from '
 import { accountPid, currentUser, getDb, handleAuth, initAccounts, SKILL_TO_LEVEL } from './accounts';
 import { dragonUsedToday, handleAsk } from './assistant';
 import { handleAdmin, migrateAdmin, type AdminLive } from './admin';
-import { accountProfiles, handleProgress, leaderboard, migrateProgress, rateOnlineHand } from './progress';
+import { accountProfiles, botStats, handleProgress, leaderboard, migrateProgress, rateOnlineHand } from './progress';
 import { forgetMember, makeStore, myTables, rememberMember, type TableStore } from './storage';
 import { handleFriends } from './friends';
 import { handleNotifications, noteJoined } from './notifications';
 import { QuickQueue } from './quick';
+import { botPicture } from '../../app/src/lib/online/profile';
 import { cleanName, cleanSettings, TableCore, validPid, type Conn, type Host, type Room } from './core/table';
 
 const PORT = Number(process.env.PORT || 8080);
@@ -325,13 +326,21 @@ const server = createServer(async (req, res) => {
 			if (!room) return sendJson(res, 404, { error: 'No such table' });
 			const ids = room.seats.map((s) => (s?.playerId.startsWith('account-') ? Number(s.playerId.slice(8)) : null));
 			const real = await accountProfiles(ids.filter((x): x is number => x !== null));
+			const g = room.game;
+			const botNames = g ? g.players.filter((p, i) => p.bot && !room.seats[i]).map((p) => p.name) : [];
+			const bots = await botStats(botNames);
+			const month = new Date().toISOString().slice(0, 7);
 			const profiles = room.seats.map((s, i) => {
 				if (s) {
 					const id = ids[i];
 					const p = id !== null ? real.get(id) : undefined;
 					return p ? { ...p, name: s.name } : { name: s.name, picture: null, hands: 0, wins: 0, since: null };
 				}
-				return t!.core.botProfile(i);
+				// filled seats: their real record from the hands they've played online
+				const p = g?.players[i];
+				if (!p?.bot) return null;
+				const st = bots.get(p.name);
+				return { name: p.name, picture: botPicture(p.name), hands: st?.hands ?? 0, wins: st?.wins ?? 0, since: st?.since ?? month };
 			});
 			return sendJson(res, 200, { profiles });
 		}
