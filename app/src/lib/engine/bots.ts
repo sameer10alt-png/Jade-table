@@ -25,6 +25,49 @@ function shanten(s: GameState, tiles: Tile[], meldCount: number) {
 	return shantenOf(tiles, meldCount, v.sets, v.shantenSpecials).shanten;
 }
 
+// ---- named-hand variants (International / the book game): aim at the nearest listed hand ----
+const seatWindOf = (s: GameState, seat: number) => (seat - s.dealer + 4) % 4;
+function bookRank(s: GameState, seat: number, ids: number[], level: BotLevel): Choice[] {
+	const v = variantOf(s);
+	const p = s.players[seat];
+	const seen = visibleCounts(s, seat);
+	const out = new Map<string, Choice>();
+	const all = v.discardDistances ? v.discardDistances(p.hand, p.melds, seatWindOf(s, seat)) : null;
+	for (const t of p.hand.filter((x) => ids.includes(x.id))) {
+		if (out.has(t.k)) continue;
+		const rest = p.hand.filter((x) => x.id !== t.id);
+		const d = all?.get(t.k) ?? v.distance!(rest, p.melds, seatWindOf(s, seat));
+		let score = -d.missing * 1000 + Math.min(d.targets, 50) * 4;
+		if (level === 'expert') score -= danger(s, seat, t, seen) * (d.missing >= 3 ? 40 : 10);
+		score += level === 'beginner' ? rand() * 1500 : rand() * 3;
+		out.set(t.k, { tile: t, score, sh: d.missing - 1 });
+	}
+	return [...out.values()].sort((a, b) => b.score - a.score);
+}
+function bookClaim(s: GameState, seat: number, level: BotLevel): Action {
+	const v = variantOf(s);
+	const L = legal(s, seat);
+	const win = L.claims.find((c) => c.type === 'win');
+	if (win) return { t: 'claim', option: win };
+	if (level === 'beginner' && rand() < 0.6) return { t: 'pass' };
+	const p = s.players[seat];
+	const wind = seatWindOf(s, seat);
+	const before = v.distance!(p.hand, p.melds, wind).missing;
+	for (const option of L.claims) {
+		if (option.type === 'chow') continue;
+		const used = p.hand.filter((t) => option.use.includes(t.id));
+		const meld = { type: option.type, tiles: [...used, s.claim!.tile], from: s.claim!.from, concealed: false } as (typeof p.melds)[number];
+		const rest = p.hand.filter((t) => !option.use.includes(t.id));
+		// after a pung we still discard one tile: take the best case
+		let after = 99;
+		if (option.type === 'kong') after = v.distance!(rest, [...p.melds, meld], wind).missing;
+		else if (v.discardDistances) for (const d of v.discardDistances(rest, [...p.melds, meld], wind).values()) after = Math.min(after, d.missing);
+		else for (const d of rest) after = Math.min(after, v.distance!(rest.filter((x) => x.id !== d.id), [...p.melds, meld], wind).missing);
+		if (after < before) return { t: 'claim', option };
+	}
+	return { t: 'pass' };
+}
+
 function ukeire(s: GameState, tiles: Tile[], meldCount: number, sh: number, seen: number[]): number {
 	let total = 0;
 	for (let i = 0; i < 34; i++) {
@@ -88,7 +131,7 @@ function deadReadyPenalty(s: GameState, seat: number, rest: Tile[]): number {
 	const v = variantOf(s);
 	if (!v.minimumHand || !s.opts.minimum) return 0;
 	const p = s.players[seat];
-	const waits = winningKinds(rest, p.melds.length, v.sets, v.special);
+	const waits = winningKinds(rest, p.melds.length, v.sets, v.special, v.complete ? (x) => v.complete!(x, p.melds) : undefined);
 	if (!waits.length) return 0;
 	let ron = false;
 	let tsumo = false;
@@ -110,6 +153,7 @@ interface Choice {
 }
 
 function rankDiscards(s: GameState, seat: number, ids: number[], level: BotLevel): Choice[] {
+	if (variantOf(s).distance) return bookRank(s, seat, ids, level);
 	const p = s.players[seat];
 	const seen = visibleCounts(s, seat);
 	const byKind = new Map<string, Choice>();
@@ -167,7 +211,7 @@ export function reviewDiscard(s: GameState, seat: number, chosenId: number): Dis
 	let oppReady = false;
 	s.players.forEach((op, i) => {
 		if (i === seat) return;
-		const waits = winningKinds(op.hand, op.melds.length, v.sets, v.special);
+		const waits = winningKinds(op.hand, op.melds.length, v.sets, v.special, v.complete ? (x) => v.complete!(x, op.melds) : undefined);
 		if (waits.length) {
 			oppReady = true;
 			waits.forEach((k) => dangerKinds.add(k));
@@ -260,6 +304,7 @@ function openingIsWorthIt(s: GameState, seat: number, option: ClaimOption, level
 }
 
 function decideClaim(s: GameState, seat: number, level: BotLevel): Action {
+	if (variantOf(s).distance) return bookClaim(s, seat, level);
 	const L = legal(s, seat);
 	const win = L.claims.find((c) => c.type === 'win');
 	if (win) return { t: 'claim', option: win };
@@ -287,7 +332,7 @@ function decideTurn(s: GameState, seat: number, level: BotLevel): Action {
 	const L = legal(s, seat);
 	if (L.tsumo) return { t: 'tsumo' };
 	const p = s.players[seat];
-	if (level !== 'beginner' && L.kongs.length) {
+	if (level !== 'beginner' && L.kongs.length && !variantOf(s).distance) {
 		const before = shanten(s, p.hand, p.melds.length);
 		for (const k of L.kongs) {
 			const four = p.hand.filter((t) => t.k === k);

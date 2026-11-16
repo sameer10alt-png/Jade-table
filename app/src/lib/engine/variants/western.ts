@@ -35,7 +35,7 @@ function common(ctx: WinContext, t: Tally) {
 	if (ctx.lastTile) t.doubles.push([ctx.selfDraw ? 'Last tile from the wall' : 'Last discard', 1]);
 }
 
-function evalStandard(ctx: WinContext, it: Interpretation, onlyTile: boolean): Tally {
+function evalStandard(ctx: WinContext, it: Interpretation, onlyTile: boolean, noFlush = false): Tally {
 	const t: Tally = { points: [], doubles: [] };
 	common(ctx, t);
 	const seatW = windIdx(ctx.seatWind);
@@ -73,7 +73,9 @@ function evalStandard(ctx: WinContext, it: Interpretation, onlyTile: boolean): T
 	const honours = tiles.some((i) => i >= 27);
 	if (suits.size === 0) t.limit = 'All honours';
 	else if (tiles.every((i) => idxTermOrHonor(i) && i < 27)) t.limit = 'All terminals (Heads and tails)';
-	else if (suits.size === 1 && !honours) t.doubles.push(['Full flush (one suit)', 3]);
+	else if (noFlush) {
+		/* the book's one-suit hands: no extra double for being one suit */
+	} else if (suits.size === 1 && !honours) t.doubles.push(['Full flush (one suit)', 3]);
 	else if (suits.size === 1) t.doubles.push(['Half flush (one suit + honours)', 1]);
 	if (tiles.every((i) => idxTermOrHonor(i)) && !t.limit) t.doubles.push(['All terminals and honours', 1]);
 
@@ -109,6 +111,29 @@ function total(t: Tally) {
 	const dbl = t.doubles.reduce((a, [, v]) => a + v, 0);
 	// round up to the next 2, as clubs do, and cap at the limit
 	return Math.min(WESTERN_LIMIT, Math.ceil((pts * Math.pow(2, dbl)) / 2) * 2);
+}
+
+/** Western points and doubles for one shape of hand, limited to readings `accept` allows
+ *  (used by the book game's calculated hands: Ordinary Mah Jong, Purity, All Honour). */
+export function scoreCalculated(ctx: WinContext, accept: (it: Interpretation) => boolean): { lines: ScoreLine[]; total: number; summary: string } | null {
+	const its = interpretations(ctx.concealed, ctx.melds, 4, ctx.winTile.k, ctx.selfDraw).filter(accept);
+	if (!its.length) return null;
+	const without = ctx.concealed.filter((x) => x.id !== ctx.winTile.id);
+	const only = winningKinds(without, ctx.melds.length, 4).length === 1;
+	let best: Tally | null = null;
+	for (const it of its) {
+		const t = evalStandard(ctx, it, only, true);
+		t.limit = undefined; // the book scores these by points; the limit caps the total
+		if (!best || total(t) > total(best)) best = t;
+	}
+	const value = total(best!);
+	const pts = best!.points.reduce((a, [, v]) => a + v, 0);
+	const dbl = best!.doubles.reduce((a, [, v]) => a + v, 0);
+	return {
+		lines: [...best!.points.map(([name, v]) => ({ name, value: v })), ...best!.doubles.map(([name, v]) => ({ name, value: v === 1 ? '1 double' : `${v} doubles` }))],
+		total: value,
+		summary: value >= WESTERN_LIMIT ? `Limit · ${WESTERN_LIMIT}` : dbl ? `${pts} × ${Math.pow(2, dbl)} = ${value} points` : `${value} points`
+	};
 }
 
 export function scoreWestern(ctx: WinContext): Scored {

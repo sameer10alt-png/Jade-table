@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { botAction } from './bots';
-import { applyAction, newGame, pendingSeats, VARIANTS, winContext } from './game';
+import { newGame, winContext } from './game';
 import type { Tile } from './tiles';
-import type { GameState, Meld } from './types';
+import type { Meld } from './types';
 import { scoreWestern, western } from './variants/western';
 
 let nextId = 7000;
@@ -34,12 +33,7 @@ function ctx(hand: string, win: string, selfDraw: boolean, opts: { melds?: Meld[
 const exposed = (type: 'pung' | 'chow' | 'kong', spec: string): Meld => ({ type, tiles: tiles(spec), from: 2, concealed: false } as Meld);
 const names = (r: { lines: { name: string }[] }) => r.lines.map((l) => l.name);
 
-describe('International = classic Western scoring', () => {
-	it('is the variant behind International', () => {
-		expect(VARIANTS.international).toBe(western);
-		expect(VARIANTS.international.minimumHand).toBeFalsy();
-	});
-
+describe('Classic Western scorer (used for the book’s calculated hands)', () => {
 	it('all chows, plain pair, won on a discard: 20 points × concealed × no score = 80', () => {
 		// 123c 456c 789p 234b + 55p, waiting two-sided on 7p/… (not the only tile)
 		const r = scoreWestern(ctx('c1 c2 c3 c4 c5 c6 p7 p8 p9 b2 b3 b4 p5 p5', 'b4', false));
@@ -118,33 +112,4 @@ describe('International = classic Western scoring', () => {
 		const eastWins = western.settleWin(s, [{ seat: 1, from: null, scored }]);
 		expect(eastWins.deltas).toEqual([-200, 600, -200, -200]);
 	});
-});
-
-describe('International (Western) bot games', () => {
-	it('plays full games to completion; East keeps the deal after winning', () => {
-		let wins = 0;
-		let hands = 0;
-		for (let seed = 1; seed <= 8; seed++) {
-			let s: GameState = newGame({ variant: 'international', bots: ['expert', 'intermediate', 'beginner'], rounds: 1, playerName: 'T', minimum: false, redFives: false, seed });
-			s.players[0].bot = 'expert';
-			let steps = 0;
-			while (s.phase !== 'gameover') {
-				if (++steps > 40000) throw new Error(`stuck seed ${seed} phase ${s.phase}`);
-				if (s.phase === 'ended') {
-					hands++;
-					const dealer = s.dealer;
-					const eastWon = s.result!.type === 'win' && s.result!.wins.some((w) => w.seat === dealer);
-					if (s.result!.type === 'win') wins++;
-					const total = s.result!.deltas.reduce((a, b) => a + b, 0);
-					expect(total).toBe(0); // money is only moved, never made
-					s = applyAction(s, 0, { t: 'next' });
-					if (s.phase !== 'gameover' && (eastWon || s.result?.type === 'draw')) expect(s.dealer).toBe(dealer);
-					continue;
-				}
-				for (const seat of pendingSeats(s)) if (pendingSeats(s).includes(seat)) s = applyAction(s, seat, botAction(s, seat));
-			}
-		}
-		console.log('western', { hands, wins });
-		expect(wins).toBeGreaterThan(hands / 3);
-	}, 180000);
 });

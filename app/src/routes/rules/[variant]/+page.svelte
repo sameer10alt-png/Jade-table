@@ -46,7 +46,7 @@
 		<table>
 			<tbody>
 				{#each v.scoringTable as row}
-					<tr><td>{row.name}</td><td class="val">{row.value}</td></tr>
+					<tr><td>{row.name}{#if row.note}<br /><small class="note">{row.note}</small>{/if}</td><td class="val">{row.value}</td></tr>
 				{/each}
 			</tbody>
 		</table>
@@ -71,6 +71,10 @@
 </main>
 
 <style>
+	.note {
+		color: var(--ink-2);
+		font-size: 0.8rem;
+	}
 	.tabs {
 		display: flex;
 		gap: 6px;

@@ -1,13 +1,13 @@
 import { handCounts, isStandardComplete, shantenOf, winningKinds } from './hand';
 import { buildTiles, isFlower, isJoker, isSuited, kindName, nextRandom, num, shuffle, sortTiles, WIND_NAMES, type Kind, type Tile } from './tiles';
-import type { Action, ClaimOption, GameOptions, GameState, HandResult, Player, WinResult } from './types';
+import type { Action, ClaimOption, GameOptions, GameState, HandResult, Meld, Player, WinResult } from './types';
 import type { Scored, Variant, WinContext } from './variant';
 import { bombay } from './variants/bombay';
 import { riichi } from './variants/riichi';
-import { western } from './variants/western';
+import { book } from './variants/book';
 import { taiwanese } from './variants/taiwanese';
 
-export const VARIANTS: Record<string, Variant> = { taiwanese, riichi, bombay, international: western };
+export const VARIANTS: Record<string, Variant> = { taiwanese, riichi, bombay, international: book };
 export const variantOf = (s: GameState) => VARIANTS[s.opts.variant];
 
 export const BOT_NAMES = ['Crane', 'Lotus', 'Tiger', 'Panda'];
@@ -300,8 +300,9 @@ export function winContext(
 	};
 }
 
-function shapeComplete(s: GameState, concealed: Tile[], meldCount: number) {
+function shapeComplete(s: GameState, concealed: Tile[], meldCount: number, melds: Meld[] = []) {
 	const v = variantOf(s);
+	if (v.complete) return v.complete(concealed, melds);
 	if (isStandardComplete(concealed, meldCount, v.sets)) return true;
 	if (!v.special) return false;
 	const { counts, jokers } = handCounts(concealed);
@@ -325,7 +326,7 @@ export interface WinCheck {
 function checkWin(s: GameState, seat: number, winTile: Tile, from: number | null, robbing = false): WinCheck {
 	const p = s.players[seat];
 	const concealed = from === null ? p.hand : [...p.hand, winTile];
-	if (!shapeComplete(s, concealed, p.melds.length)) return { scored: null };
+	if (!shapeComplete(s, concealed, p.melds.length, p.melds)) return { scored: null };
 	if (from !== null && p.passBlock.includes(winTile.k)) return { scored: null, blocked: 'You passed this tile earlier.' };
 	if (from !== null && furiten(s, seat)) return { scored: null, blocked: 'Furiten: a winning tile is in your discards.' };
 	const scored = variantOf(s).scoreWin(winContext(s, seat, concealed, winTile, from, robbing));

@@ -5,7 +5,7 @@ let fails = 0;
 const check = (n, ok, info = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${n}${info ? `  (${info})` : ''}`); if (!ok) fails++; };
 const post = async (p, b) => (await fetch(U + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) })).json();
 const pid = `guest-rev-${Math.random().toString(36).slice(2, 10)}`;
-let s = await post('/api/quick/join', { variant: 'riichi', playerId: pid, name: 'Rev' });
+let s = await post('/api/quick/join', { variant: 'international', playerId: pid, name: 'Rev' });
 while (s.state !== 'matched') { await new Promise((r) => setTimeout(r, 500)); s = await post('/api/quick/status', { playerId: pid }); }
 const code = s.code;
 const ws = new WebSocket(`${U.replace(/^http/, 'ws')}/ws/table/${code}?pid=${pid}&name=Rev`);

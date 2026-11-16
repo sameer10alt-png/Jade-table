@@ -93,7 +93,12 @@ export function isStandardComplete(concealed: Tile[], meldCount: number, sets: n
 export type SpecialShape = (counts: number[], jokers: number, meldCount: number) => string | null;
 
 /** Kinds that would complete the hand (shape only). `tiles` is the hand without the winning tile. */
-export function winningKinds(tiles: Tile[], meldCount: number, sets: number, special?: SpecialShape): Kind[] {
+export function winningKinds(tiles: Tile[], meldCount: number, sets: number, special?: SpecialShape, complete?: (tiles: Tile[]) => boolean): Kind[] {
+	if (complete) {
+		const res: Kind[] = [];
+		for (const k of KINDS34) if (complete([...tiles, { id: -999, k }])) res.push(k);
+		return res;
+	}
 	const { counts, jokers } = handCounts(tiles);
 	const need = sets - meldCount;
 	if (shantenStandard(counts, need, jokers) > 0 && !special) return [];
