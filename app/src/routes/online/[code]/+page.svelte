@@ -14,6 +14,7 @@
 	import GameReview, { type GameReviewData } from '#lib/components/GameReview.svelte';
 	import { buildReviewData, gameLog, type HandResult, type LoggedMove } from '#lib/review-log.ts';
 	import { outcomesOf } from '#lib/ranks.ts';
+	import { tag, track } from '#lib/analytics.ts';
 	import { tableProfiles } from '#lib/online/quick.ts';
 	import type { Profile } from '#lib/online/profile.ts';
 
@@ -40,6 +41,7 @@
 	$effect(() => {
 		const g = game;
 		if (!g?.result || seat === null || (g.phase !== 'ended' && g.phase !== 'gameover')) return;
+		if (!myResults.some((r) => r.handNo === g.handNo)) track('hand_finished');
 		if (!myResults.some((r) => r.handNo === g.handNo))
 			myResults.push({ handNo: g.handNo, outcome: outcomesOf(g.result, g.players.length)[seat], delta: g.result.deltas[seat] ?? 0 });
 	});
@@ -79,10 +81,17 @@
 		});
 	}
 
+	let tagged = false;
 	function onMessage(m: ServerMsg) {
 		if (m.type === 'state') {
 			room = m.room;
 			game = m.game;
+			if (m.game && !tagged) {
+				tagged = true;
+				tag('mode', m.room.quick ? 'quick' : 'online');
+				tag('game', m.game.opts.variant);
+				track('online_game_start');
+			}
 			seat = m.seat;
 			if (m.seat !== null) rememberTable(code);
 			if (autostart && m.room.status === 'lobby' && m.room.youAreHost) {

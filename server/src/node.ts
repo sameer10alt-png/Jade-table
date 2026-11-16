@@ -241,6 +241,11 @@ const server = createServer(async (req, res) => {
 			return res.end();
 		}
 		if (url.pathname === '/healthz') return sendJson(res, 200, { ok: true, tables: tables.size });
+		// public settings the page needs at runtime (set in Railway variables, no rebuild needed)
+		if (url.pathname === '/api/config') {
+			const clarity = /^[a-z0-9]{6,20}$/i.test(process.env.CLARITY_ID ?? '') ? process.env.CLARITY_ID : null;
+			return sendJson(res, 200, { clarity });
+		}
 		if (url.pathname.startsWith('/api/progress') && (await handleProgress(req, res, url))) return;
 		if ((url.pathname === '/api/announcements' || url.pathname.startsWith('/api/admin')) && (await handleAdmin(req, res, url, adminLive))) return;
 		if ((url.pathname === '/api/ask' || url.pathname === '/api/ask/status' || url.pathname === '/api/ask/review') && (await handleAsk(req, res, url))) return;

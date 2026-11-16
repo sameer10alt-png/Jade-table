@@ -20,6 +20,7 @@
 	} from '#lib/diagnostics.ts';
 	import { outcomesOf } from '#lib/ranks.ts';
 	import { account, loadAccount } from '#lib/online/account.svelte.ts';
+	import { tag, track } from '#lib/analytics.ts';
 	import type { Action, GameState } from '#lib/engine/types.ts';
 	import { clearGame, DEFAULT_PREFS, loadGame, loadPrefs, saveGame, savePrefs, type Prefs } from '#lib/storage.ts';
 
@@ -77,6 +78,7 @@
 		const key = `${g.opts.seed}:${g.handNo}`;
 		if (handled.has(key) || !g.result) return;
 		handled.add(key);
+		track('hand_finished');
 		const res = outcomesOf(g.result, g.players.length)[ME];
 		if (!myResults.some((x) => x.handNo === g.handNo)) myResults.push({ handNo: g.handNo, outcome: res, delta: g.result.deltas[ME] ?? 0 });
 		const skip = botPlayedThisHand || autoplay;
@@ -164,6 +166,9 @@
 		if (!g) goto('/');
 		else {
 			game = g;
+			tag('mode', 'solo');
+			tag('game', g.opts.variant);
+			track('solo_game_open');
 			const a = loadAssess();
 			// the assessment belongs to this game only
 			if (a && a.started === g.opts.seed) assess = a;

@@ -51,15 +51,23 @@
 
 	<h2>Cookies</h2>
 	<p>
-		We use only the cookies the site needs: one that keeps you signed in, and a short-lived one that protects the Google sign-in step.
-		No advertising or tracking cookies.
+		We use cookies that keep you signed in and protect the Google sign-in step. We also use Microsoft Clarity analytics, which sets its
+		own cookies to tell visits apart and to see how long people play. No advertising cookies.
+	</p>
+
+	<h2>Analytics</h2>
+	<p>
+		We use <b>Microsoft Clarity</b> to see how the site is used: how long people play, which pages they visit, where they click and
+		scroll, and recordings of sessions that help us find bugs and confusing screens. Clarity masks text you type. It sees your device,
+		browser and rough location, and we tag sessions with the game and mode you play. We use this only to improve {APP_NAME}. Microsoft's
+		privacy statement covers how it handles this data.
 	</p>
 
 	<h2>What we do not do</h2>
 	<ul>
 		<li>We don't sell or rent your information.</li>
 		<li>We don't show ads or use ad trackers.</li>
-		<li>We don't use your information for anything other than running the game.</li>
+		<li>We don't use your information for anything other than running and improving the game.</li>
 	</ul>
 
 	<h2>Who else handles your data</h2>
@@ -67,6 +75,7 @@
 		<li><b>Railway</b> hosts our servers and database (in the United States).</li>
 		<li><b>Google</b> handles sign-in, if you choose to use it.</li>
 		<li><b>Resend</b> delivers the sign-in code emails.</li>
+		<li><b>Microsoft Clarity</b> provides usage analytics and session recordings.</li>
 		<li><b>Google Fonts</b> supplies the site's fonts, so Google's font servers see your IP address when a page loads.</li>
 	</ul>
 
