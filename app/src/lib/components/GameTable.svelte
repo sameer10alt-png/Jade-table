@@ -12,7 +12,7 @@
 	import { suggestDiscard } from '#lib/engine/bots.ts';
 	import { legal, pendingSeats, seatWind, standings, VARIANTS } from '#lib/engine/game.ts';
 	import { shantenOf, winningKinds } from '#lib/engine/hand.ts';
-	import { kindName, organiseTiles, sortTiles, WIND_NAMES, WIND_SHORT, type Tile as T } from '#lib/engine/tiles.ts';
+	import { kindName, SORT_MODES, sortHand, WIND_NAMES, WIND_SHORT, type SortMode, type Tile as T } from '#lib/engine/tiles.ts';
 	import type { Action, ClaimOption, GameState } from '#lib/engine/types.ts';
 	import type { SeatFriend } from '#lib/online/friends.svelte.ts';
 
@@ -117,7 +117,7 @@
 		const fresh = handTiles.filter((t) => !known.has(t.id)).length > 2;
 		if (key !== orderHand || fresh) {
 			orderHand = key;
-			order = sortTiles(handTiles).map((t) => t.id);
+			order = sortHand(handTiles, sortMode).map((t) => t.id);
 		}
 	});
 	const hand = $derived.by(() => {
@@ -125,11 +125,24 @@
 		const known = handTiles.filter((t) => pos.has(t.id)).sort((a, b) => pos.get(a.id)! - pos.get(b.id)!);
 		return [...known, ...handTiles.filter((t) => !pos.has(t.id))];
 	});
-	// "Sort tiles": suits in order, numbers low to high, then winds, dragons and flowers.
-	// On a hand that's already sorted, the button groups your sets instead.
-	const isSuitSorted = $derived(hand.map((t) => t.id).join() === sortTiles(handTiles).map((t) => t.id).join());
-	function organise() {
-		order = (isSuitSorted ? organiseTiles(handTiles) : sortTiles(handTiles)).map((t) => t.id);
+	// Sort dropdown: the choice is remembered and used for every new deal too
+	function savedSort(): SortMode {
+		try {
+			const v = localStorage.getItem('pt.sort');
+			return SORT_MODES.some((m) => m.id === v) ? (v as SortMode) : 'suit';
+		} catch {
+			return 'suit';
+		}
+	}
+	let sortMode = $state<SortMode>(savedSort());
+	function organise(mode: SortMode = sortMode) {
+		sortMode = mode;
+		try {
+			localStorage.setItem('pt.sort', mode);
+		} catch {
+			/* private mode: remembered for this visit */
+		}
+		order = sortHand(handTiles, mode).map((t) => t.id);
 	}
 	let dragId = $state<number | null>(null);
 	function dropOn(targetId: number) {
@@ -392,7 +405,12 @@
 
 			<div class="actions">
 				{#if hand.length > 1}
-					<button class="btn organise" onclick={organise} title="Sort by suit and number. Press again to group your sets. You can also drag tiles.">{isSuitSorted ? 'Group sets' : 'Sort tiles'}</button>
+					<span class="sortpick">
+						<button class="btn organise" onclick={() => organise()} title="Sort your tiles again (you can also drag them)">Sort</button>
+						<select aria-label="How to sort your tiles" value={sortMode} onchange={(e) => organise((e.currentTarget as HTMLSelectElement).value as SortMode)}>
+							{#each SORT_MODES as m (m.id)}<option value={m.id}>{m.label}</option>{/each}
+						</select>
+					</span>
 				{/if}
 				{#if game.phase === 'claim' && L.claims.length}
 					<span class="claimed"><Tile tile={game.claim!.tile} size="md" glow /></span>
@@ -733,6 +751,21 @@
 	}
 	.organise {
 		font-size: 0.85rem;
+	}
+	.sortpick {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+	}
+	.sortpick select {
+		font: inherit;
+		font-size: 0.85rem;
+		padding: 7px 8px;
+		border-radius: 10px;
+		border: 1px solid var(--line);
+		background: var(--card);
+		color: var(--ink);
+		cursor: pointer;
 	}
 	.actions {
 		display: flex;
