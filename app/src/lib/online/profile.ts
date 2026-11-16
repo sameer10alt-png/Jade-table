@@ -37,8 +37,13 @@ export function fillProfile(name: string, level: BotLevel, seed: string, now = n
 	const back = 1 + Math.floor(r() * 4); // joined 1-4 months ago
 	const d = new Date(now.getFullYear(), now.getMonth() - back, 1);
 	const since = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-	const picture = r() < 0.6 ? `gen:${Math.floor(r() * 1e9)}` : null;
-	return { name, picture, hands, wins, since };
+	return { name, picture: botPicture(name), hands, wins, since };
+}
+
+/** a filled seat's picture: decided by its name, so the same player looks the same at every table */
+export function botPicture(name: string): string | null {
+	const r = seeded(`pic:${name}`);
+	return r() < 0.6 ? `gen:${Math.floor(r() * 1e9)}` : null;
 }
 
 const SKIN = ['#f6d3b3', '#eabf98', '#d6a275', '#b07a4f', '#8a5a36', '#5e3b22'];
