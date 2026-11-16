@@ -4,10 +4,10 @@ import type { Action, ClaimOption, GameOptions, GameState, HandResult, Player, W
 import type { Scored, Variant, WinContext } from './variant';
 import { bombay } from './variants/bombay';
 import { riichi } from './variants/riichi';
-import { mcr } from './variants/mcr';
+import { western } from './variants/western';
 import { taiwanese } from './variants/taiwanese';
 
-export const VARIANTS: Record<string, Variant> = { taiwanese, riichi, bombay, international: mcr };
+export const VARIANTS: Record<string, Variant> = { taiwanese, riichi, bombay, international: western };
 export const variantOf = (s: GameState) => VARIANTS[s.opts.variant];
 
 export const BOT_NAMES = ['Crane', 'Lotus', 'Tiger', 'Panda'];

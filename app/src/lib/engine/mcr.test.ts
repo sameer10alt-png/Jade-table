@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { botAction } from './bots';
-import { applyAction, newGame, pendingSeats, winContext } from './game';
+import { newGame, winContext } from './game';
 import type { Tile } from './tiles';
-import type { GameState } from './types';
 import { mcr, scoreMCR } from './variants/mcr';
 
 let nextId = 5000;
@@ -80,38 +78,7 @@ describe('International (MCR) scoring', () => {
 	});
 });
 
-describe('International bot games', () => {
-	it('plays full games to completion and bots can win', () => {
-		let wins = 0;
-		let hands = 0;
-		for (let seed = 1; seed <= 10; seed++) {
-			let s: GameState = newGame({ variant: 'international', bots: ['expert', 'intermediate', 'beginner'], rounds: 1, playerName: 'T', minimum: true, redFives: false, seed });
-			s.players[0].bot = 'expert';
-			let steps = 0;
-			let dealers: number[] = [];
-			while (s.phase !== 'gameover') {
-				if (++steps > 20000) throw new Error(`stuck seed ${seed} phase ${s.phase}`);
-				if (s.phase === 'ended') {
-					hands++;
-					if (s.result!.type === 'win') wins++;
-					dealers.push(s.dealer);
-					s = applyAction(s, 0, { t: 'next' });
-					continue;
-				}
-				for (const seat of pendingSeats(s)) if (pendingSeats(s).includes(seat)) s = applyAction(s, seat, botAction(s, seat));
-				const inPlay =
-					s.wall.length +
-					s.players.reduce((a, p) => a + p.hand.length + p.flowers.length + p.discards.filter((d) => !d.taken).length + p.melds.reduce((b, m) => b + m.tiles.length, 0), 0);
-				if (s.phase !== 'ended' && s.phase !== 'gameover' && s.phase !== 'seating') expect(inPlay).toBe(144);
-			}
-			// the deal moves every hand: an East round is exactly four hands
-			expect(dealers.length).toBe(4);
-			expect(new Set(dealers).size).toBe(4);
-		}
-		console.log('international', { hands, wins });
-		expect(wins).toBeGreaterThan(0);
-	}, 180000);
-});
+// (MCR is kept as a scorer only; International on the site now plays classic Western rules — see western.test.ts)
 
 describe('account-once chow combinations', () => {
 	it('123 123 456 gives Pure Double Chow and Short Straight', () => {
