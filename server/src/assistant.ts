@@ -2,10 +2,11 @@
 // var (ASK_API_KEY); the browser never sees it. Works with any OpenAI-compatible chat API.
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { accountsEnabled, currentUser } from './accounts';
-import { siteSettings } from './admin';
+import { noteDragonUse, siteSettings } from './admin';
 
 /** questions per account per day (protects the monthly bill) */
-const DAILY_LIMIT = 80;
+/** questions + reviews per player per day (admin can change it) */
+const dailyLimit = () => siteSettings().dragonLimit;
 const daily = new Map<number, { day: string; n: number }>();
 
 export const SPAM_REPLY =
@@ -89,7 +90,7 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 	const today = new Date().toISOString().slice(0, 10);
 	const d = daily.get(user.id);
 	const used = d?.day === today ? d.n : 0;
-	if (used >= DAILY_LIMIT) return json(429, { error: 'You have reached today’s question limit. Come back tomorrow.' });
+	if (used >= dailyLimit()) return json(429, { error: 'You have reached today’s question limit. Come back tomorrow.' });
 
 	let body = '';
 	for await (const c of req) {
@@ -113,6 +114,7 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 	const spam = spamReason(q, earlier);
 	if (spam) return json(200, { reply: spam === 'chatter' ? CHAT_REPLY : SPAM_REPLY, spam: true });
 	daily.set(user.id, { day: today, n: used + 1 });
+	noteDragonUse(user.id, 'ask');
 
 	try {
 		const r = await fetch(`${BASE}/chat/completions`, {
@@ -140,7 +142,7 @@ async function review(req: IncomingMessage, json: (status: number, data: unknown
 	const today = new Date().toISOString().slice(0, 10);
 	const d = daily.get(user.id);
 	const used = d?.day === today ? d.n : 0;
-	if (used >= DAILY_LIMIT) return json(429, { error: 'You have reached today’s Dragon limit. Come back tomorrow.' });
+	if (used >= dailyLimit()) return json(429, { error: 'You have reached today’s Dragon limit. Come back tomorrow.' });
 
 	let body = '';
 	for await (const c of req) {
@@ -156,6 +158,7 @@ async function review(req: IncomingMessage, json: (status: number, data: unknown
 	const log = typeof data.log === 'string' ? data.log.slice(0, 16000) : '';
 	if (!/Move \d+:/.test(log)) return json(400, { error: 'Play a few moves first, then ask for a review.' });
 	daily.set(user.id, { day: today, n: used + 1 });
+	noteDragonUse(user.id, 'review');
 
 	try {
 		const r = await fetch(`${BASE}/chat/completions`, {

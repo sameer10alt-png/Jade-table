@@ -116,7 +116,7 @@
 				await fetch('/api/progress/hand', {
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ outcome, key, opponents: g.players.slice(1).map((p) => p.bot ?? 'intermediate') })
+					body: JSON.stringify({ outcome, key, variant: g.opts.variant, opponents: g.players.slice(1).map((p) => p.bot ?? 'intermediate') })
 				});
 			} catch {
 				/* offline: this hand isn't saved */

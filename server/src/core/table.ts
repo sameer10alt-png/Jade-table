@@ -73,6 +73,11 @@ export interface Host {
 // how long a person gets before the server plays for them
 // online only (people and filled seats); solo play against the computer has no clock
 const LIMIT: Record<string, number> = { claim: 15_000, turn: 30_000, passing: 30_000, ended: 45_000, seating: 15_000, wallbreak: 15_000 };
+/** admin: change the turn and claim clocks for online tables (applies from the next move) */
+export function setTimeLimits(turnSeconds: number, claimSeconds: number) {
+	LIMIT.turn = LIMIT.passing = Math.round(Math.max(10, Math.min(120, turnSeconds)) * 1000);
+	LIMIT.claim = Math.round(Math.max(5, Math.min(60, claimSeconds)) * 1000);
+}
 // a dropped connection (e.g. a page refresh) gets this long before a bot covers the seat
 const GRACE = 10_000;
 // how long bots "think", so people can follow what happened
