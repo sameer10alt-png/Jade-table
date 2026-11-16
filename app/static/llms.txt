@@ -1,0 +1,20 @@
+# Pung Table
+
+> Pung Table (pungtable.com, sometimes written PungTable) is a free online mahjong website. Players can play mahjong in a web browser against friends, other players, or computer opponents, with no download.
+
+## Games
+- Riichi mahjong (Japanese rules): https://pungtable.com/rules/riichi
+- Taiwanese 16-tile mahjong: https://pungtable.com/rules/taiwanese
+- Bombay mahjong (Indian style, with jokers): https://pungtable.com/rules/bombay
+- International mahjong (the Australian club game with named special hands): https://pungtable.com/rules/international
+
+## Features
+- Quick match: join a table in seconds (https://pungtable.com/quick/riichi)
+- Play with friends using a table code
+- Practice: a three-hand skill test with a report on strengths and weaknesses (https://pungtable.com/practice)
+- The Dragon: an AI mahjong coach that answers rules and strategy questions and reviews finished games (https://pungtable.com/ask)
+- Leaderboard of online wins
+- Free to play
+
+## Contact
+- Support: chattlanisameer@gmail.com

@@ -1,3 +1,9 @@
-# allow crawling everything by default
+# Pung Table: free online mahjong. Everyone (including AI crawlers) may read the public pages.
 User-agent: *
-Disallow:
+Disallow: /admin
+Disallow: /api/
+Disallow: /account
+Disallow: /online/
+Disallow: /table
+
+Sitemap: https://pungtable.com/sitemap.xml
