@@ -152,8 +152,8 @@
 		let base = me.hand;
 		if (myTurn && suggestion !== null) base = me.hand.filter((t) => t.id !== suggestion);
 		if (myTurn && suggestion === null) return null;
-		const sh = shantenOf(base, me.melds.length, v.sets, v.shantenSpecials).shanten;
-		const waits = sh === 0 ? winningKinds(base, me.melds.length, v.sets, v.special) : [];
+		const sh = v.distance ? v.distance(base, me.melds, (ME - game.dealer + 4) % 4).missing - 1 : shantenOf(base, me.melds.length, v.sets, v.shantenSpecials).shanten;
+		const waits = sh === 0 || v.complete ? winningKinds(base, me.melds.length, v.sets, v.special, v.complete ? (x) => v.complete!(x, me.melds) : undefined) : [];
 		return { suggestion, sh, waits };
 	});
 

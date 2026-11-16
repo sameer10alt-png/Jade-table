@@ -67,6 +67,12 @@ export interface Variant {
 	riichi: boolean;
 	goulash: boolean;
 	special?: SpecialShape;
+	/** variants whose wins are a list of named hands: can these tiles be declared? (melds included) */
+	complete?: (concealed: Tile[], melds: Meld[]) => boolean;
+	/** named-hand variants: tiles still missing for the nearest hand (0 = complete), and how many hands are that close */
+	distance?: (concealed: Tile[], melds: Meld[], seatWind: number) => { missing: number; targets: number };
+	/** the same for every possible discard from a 14-tile hand, in one go */
+	discardDistances?: (concealed: Tile[], melds: Meld[], seatWind: number) => Map<string, { missing: number; targets: number }>;
 	shantenSpecials: { pairs?: boolean; orphans?: boolean };
 	/** Riichi honba: the counter also grows on drawn hands */
 	streakOnDraw: boolean;
