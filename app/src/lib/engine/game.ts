@@ -546,6 +546,31 @@ function finishWin(s: GameState, winners: number[], tile: Tile, from: number | n
 	}
 }
 
+/** Admin test power: end the hand now with `seat` winning `points` from the others,
+ *  paid the way this variant pays a self-drawn win. */
+export function adminWin(state: GameState, seat: number, points: number): GameState {
+	const s = structuredClone(state);
+	if (s.phase === 'ended' || s.phase === 'gameover') return s;
+	const v = variantOf(s);
+	const p = s.players[seat];
+	const tile = p.hand[p.hand.length - 1] ?? s.drawn ?? { id: -1, k: 'dw' };
+	const scored = { valid: true, lines: [{ name: 'Admin win', value: points }], total: points, summary: `Admin win · ${points}` };
+	const st = v.settleWin(s, [{ seat, from: null, scored }]);
+	st.deltas.forEach((d, i) => (s.players[i].score += d));
+	s.result = {
+		type: 'win',
+		wins: [{ seat, from: null, tile, hand: sortTiles(p.hand), melds: p.melds, flowers: p.flowers, lines: scored.lines, summary: scored.summary, total: points }],
+		deltas: st.deltas,
+		notes: ['Hand ended by an admin.'],
+		dealerKeeps: false
+	};
+	s.claim = null;
+	s.drawn = null;
+	s.phase = 'ended';
+	log(s, seat, 'win', `${p.name} wins! Admin win · ${points}`, tile);
+	return s;
+}
+
 function exhaustiveDraw(s: GameState) {
 	const v = variantOf(s);
 	const st = v.settleDraw(s);

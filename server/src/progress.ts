@@ -133,6 +133,7 @@ export async function rateOnlineHand(room: Room) {
 	const db = getDb();
 	const g = room.game;
 	if (!db || !g?.result) return;
+	if (room.adminTouched) return; // an admin used a test power: nothing here counts
 	await recordBotHand(room);
 	const humans = room.seats.filter(Boolean).length;
 	const k = humans >= 2 ? K_ONLINE : K_BOTS; // a game of you vs bots is worth less

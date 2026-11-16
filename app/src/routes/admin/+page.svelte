@@ -484,7 +484,10 @@
 									<span class="seat" class:bot={!s.person} class:off={s.person && !s.online}>{s.name}{s.person ? '' : ' 🤖'}</span>
 								{/each}
 							</td>
-							<td><button class="btn sm red" onclick={() => closeTable(t)}>Close</button></td>
+							<td class="acts">
+								{#if t.status === 'playing'}<a class="btn sm primary" href="/admin/watch/{t.code}">Watch / take over</a>{/if}
+								<button class="btn sm red" onclick={() => closeTable(t)}>Close</button>
+							</td>
 						</tr>
 					{/each}
 				</tbody>
