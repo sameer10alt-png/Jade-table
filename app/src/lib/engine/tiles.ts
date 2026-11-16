@@ -137,6 +137,25 @@ export function shuffle<T>(arr: T[], seed: number): [T[], number] {
  * "Organise" a hand: finished sets first (pungs, then runs), then pairs and two-tile
  * shapes, then loose tiles, each group in suit order. Jokers and flowers go last.
  */
+/** ways a player can sort their hand */
+export type SortMode = 'suit' | 'number' | 'honoursFirst' | 'sets';
+export const SORT_MODES: { id: SortMode; label: string }[] = [
+	{ id: 'suit', label: 'By suit' },
+	{ id: 'number', label: 'By number' },
+	{ id: 'honoursFirst', label: 'Honours first' },
+	{ id: 'sets', label: 'Group sets' }
+];
+export function sortHand(tiles: Tile[], mode: SortMode): Tile[] {
+	if (mode === 'sets') return organiseTiles(tiles);
+	if (mode === 'suit') return sortTiles(tiles);
+	const key = (k: Kind) => {
+		const base = sortKey(k);
+		if (mode === 'number') return isSuited(k) ? num(k) * 10 + 'cpb'.indexOf(k[0]) : 100 + base; // all the 1s, then 2s… then honours
+		return isSuited(k) ? 100 + base : base; // winds, dragons, flowers, then the suits
+	};
+	return [...tiles].sort((a, b) => key(a.k) - key(b.k) || a.id - b.id);
+}
+
 export function organiseTiles(tiles: Tile[]): Tile[] {
 	let rest = sortTiles(tiles);
 	const take = (pick: (t: Tile, pool: Tile[]) => Tile[] | null) => {
