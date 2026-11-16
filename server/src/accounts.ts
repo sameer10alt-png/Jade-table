@@ -16,6 +16,8 @@ export interface User {
 	email: string | null;
 	picture: string | null;
 	skill: string | null;
+	/** god mode: set in Postgres with `update users set is_admin = true where email = '…'` */
+	isAdmin?: boolean;
 }
 
 /** The smallest database interface we need: both `pg` and PGlite satisfy it. */
@@ -95,6 +97,9 @@ async function migrate() {
 			updated_at timestamptz not null default now()
 		)`);
 	await db!.query(`create index if not exists rooms_updated on rooms(updated_at)`);
+	// admin (god mode) and bans
+	await db!.query(`alter table users add column if not exists is_admin boolean not null default false`);
+	await db!.query(`alter table users add column if not exists banned boolean not null default false`);
 	// friends: a public friend code per account, requests/friendships, and table invites
 	await db!.query(`alter table users add column if not exists friend_code text unique`);
 	// a longer, separate secret for "add me" links: tapping one makes you friends at once
@@ -220,8 +225,8 @@ export async function currentUser(req: IncomingMessage): Promise<User | null> {
 	const t = cookies(req)[SESSION_COOKIE];
 	if (!t) return null;
 	const { rows } = await db.query<User>(
-		`select u.id, u.name, u.email, u.picture, u.skill from sessions s join users u on u.id = s.user_id
-		 where s.token_hash = $1 and s.expires_at > now()`,
+		`select u.id, u.name, u.email, u.picture, u.skill, u.is_admin as "isAdmin" from sessions s join users u on u.id = s.user_id
+		 where s.token_hash = $1 and s.expires_at > now() and not u.banned`,
 		[sha256(t)]
 	);
 	return rows[0] ? { ...rows[0], id: Number(rows[0].id) } : null;
@@ -322,7 +327,7 @@ export async function handleAuth(req: IncomingMessage, res: ServerResponse, url:
 
 	if (url.pathname === '/api/me') {
 		const user = await currentUser(req);
-		return json(200, { enabled: accountsEnabled(), google: !!GOOGLE_ID, user: user && { name: user.name, picture: user.picture, email: user.email, skill: user.skill } });
+		return json(200, { enabled: accountsEnabled(), google: !!GOOGLE_ID, user: user && { name: user.name, picture: user.picture, email: user.email, skill: user.skill, isAdmin: !!user.isAdmin } });
 	}
 
 	if (url.pathname === '/api/logout' && req.method === 'POST') {

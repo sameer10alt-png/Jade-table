@@ -15,7 +15,8 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { isTableCode, makeTableCode, type ServerMsg, type TableSettings } from '../../app/src/lib/online/protocol';
 import { accountPid, currentUser, getDb, handleAuth, initAccounts, SKILL_TO_LEVEL } from './accounts';
-import { handleAsk } from './assistant';
+import { dragonUsedToday, handleAsk } from './assistant';
+import { handleAdmin, migrateAdmin, type AdminLive } from './admin';
 import { accountProfiles, handleProgress, leaderboard, migrateProgress, rateOnlineHand } from './progress';
 import { forgetMember, makeStore, myTables, rememberMember, type TableStore } from './storage';
 import { handleFriends } from './friends';
@@ -75,6 +76,47 @@ class NodeTable implements Host {
 }
 
 const tables = new Map<string, NodeTable>();
+
+/** what the admin panel can see and do on the running server */
+const adminLive: AdminLive = {
+	tables: () =>
+		[...tables.values()]
+			.filter((t) => t.core.room)
+			.map((t) => {
+				const r = t.core.room!;
+				const g = r.game;
+				const seats = g
+					? g.players.map((p, i) => {
+							const s = r.seats[i];
+							return { name: p.name, person: !!s && !p.bot, online: !!s && t.connections(s.playerId).length > 0 };
+						})
+					: r.seats.filter(Boolean).map((s) => ({ name: s!.name, person: true, online: t.connections(s!.playerId).length > 0 }));
+				return { code: r.code, variant: r.settings.variant, status: r.status, hand: g?.handNo ?? null, quick: !!r.quick, seats, updated: r.touched ?? 0 };
+			}),
+	closeTable: async (code) => {
+		const t = tables.get(code) ?? (await getTable(code));
+		if (!t?.core.room) return false;
+		await t.run(async () => {
+			const r = t.core.room!;
+			for (const c of t.connections()) c.send({ type: 'error', message: 'This table was closed by an admin.' });
+			for (const s of t.sockets) s.ws.close(4000, 'This table was closed by an admin.');
+			r.game = null;
+			r.status = 'lobby';
+			r.seats = r.seats.map(() => null);
+			await t.setAlarm(null);
+			await store.save(r);
+		});
+		tables.delete(code);
+		return true;
+	},
+	waiting: () => quick.counts(),
+	online: () => {
+		const people = new Set<string>();
+		for (const t of tables.values()) for (const c of t.connections()) people.add(c.pid);
+		return people.size + Object.values(quick.counts()).reduce((a, b) => a + b, 0);
+	},
+	dragonToday: () => dragonUsedToday()
+};
 
 /** Account ids come only from a real sign-in; a guest may not claim one. */
 const guestOnly = (pid: string | null | undefined) => (pid && !pid.startsWith('account-') ? pid : null);
@@ -200,6 +242,7 @@ const server = createServer(async (req, res) => {
 		}
 		if (url.pathname === '/healthz') return sendJson(res, 200, { ok: true, tables: tables.size });
 		if (url.pathname.startsWith('/api/progress') && (await handleProgress(req, res, url))) return;
+		if ((url.pathname === '/api/announcements' || url.pathname.startsWith('/api/admin')) && (await handleAdmin(req, res, url, adminLive))) return;
 		if ((url.pathname === '/api/ask' || url.pathname === '/api/ask/status' || url.pathname === '/api/ask/review') && (await handleAsk(req, res, url))) return;
 		if (
 			(url.pathname.startsWith('/auth/') ||
@@ -366,6 +409,7 @@ server.on('upgrade', (req, socket, head) => {
 
 await initAccounts();
 await migrateProgress();
+await migrateAdmin();
 store = makeStore(DATA_DIR);
 
 server.listen(PORT, () => {

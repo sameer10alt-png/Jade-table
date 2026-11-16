@@ -255,7 +255,7 @@ export async function leaderboard(period: 'week' | 'all', limit = 10) {
 		        count(*) filter (where e.outcome = 'win') as wins,
 		        count(*) as hands
 		   from rating_events e join users u on u.id = e.user_id
-		  where e.source <> 'bots' ${since}
+		  where e.source <> 'bots' and not u.banned ${since}
 		  group by u.id, u.name, u.picture
 		 having count(*) filter (where e.outcome = 'win') > 0
 		  order by wins desc, hands asc, u.id asc
