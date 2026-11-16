@@ -9,11 +9,13 @@
 	import Bell from '#lib/components/Bell.svelte';
 	import Toasts from '#lib/components/Toasts.svelte';
 	import Announcements from '#lib/components/Announcements.svelte';
+	import { startAnalytics } from '#lib/analytics.ts';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
 	onMount(() => {
 		loadAccount();
+		startAnalytics();
 	});
 	// badge polling runs only while someone is signed in (it also marks them online for friends)
 	$effect(() => {
