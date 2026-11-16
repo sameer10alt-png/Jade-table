@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Leaderboard from '#lib/components/Leaderboard.svelte';
 	import { onMount } from 'svelte';
 	import Tile from '#lib/components/Tile.svelte';
 	import { APP_NAME } from '#lib/brand.ts';
@@ -72,6 +73,8 @@
 			{/each}
 		</span>
 	</section>
+
+	<Leaderboard />
 
 	<section class="improve">
 		<a class="feat" href="/practice">
