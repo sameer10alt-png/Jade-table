@@ -15,6 +15,7 @@ import {
 } from '../../app/src/lib/ranks';
 import { currentUser, getDb, type User } from './accounts';
 import type { Room } from './core/table';
+import { awardHand } from './rewards';
 
 const OFFLINE_MIN_GAP_MS = 15_000; // one offline hand report per 15 s at most
 
@@ -120,7 +121,8 @@ async function applyHand(userId: number, outcome: HandOutcome, delta: number, so
 	if (!ins.rows.length) return null;
 	const col = outcome === 'win' ? 'wins' : outcome === 'draw' ? 'draws' : 'losses';
 	await db.query(`update users set rating = $2, ${col} = ${col} + 1 where id = $1`, [userId, after]);
-	return { before, after, delta: after - before };
+	const jade = await awardHand(userId, outcome, source === 'online').catch((e) => (console.error('jade', e), 0));
+	return { before, after, delta: after - before, jade };
 }
 
 const userIdOf = (pid: string | undefined) => {

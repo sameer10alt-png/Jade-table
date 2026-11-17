@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { refreshRewards } from '#lib/rewards.svelte.ts';
 	// Offline table: runs the game in the browser against local bots and saves it locally.
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
@@ -118,6 +119,7 @@
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({ outcome, key, variant: g.opts.variant, opponents: g.players.slice(1).map((p) => p.bot ?? 'intermediate') })
 				});
+				refreshRewards();
 			} catch {
 				/* offline: this hand isn't saved */
 			}

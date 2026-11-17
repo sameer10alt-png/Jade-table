@@ -17,6 +17,7 @@ import { isTableCode, makeTableCode, type ServerMsg, type TableSettings } from '
 import { accountPid, currentUser, getDb, handleAuth, initAccounts, SKILL_TO_LEVEL } from './accounts';
 import { dragonUsedToday, handleAsk } from './assistant';
 import { handleAdmin, migrateAdmin, type AdminLive } from './admin';
+import { handleRewards, migrateRewards } from './rewards';
 import { accountProfiles, botStats, handleProgress, leaderboard, migrateProgress, rateOnlineHand } from './progress';
 import { forgetMember, makeStore, myTables, rememberMember, type TableStore } from './storage';
 import { handleFriends } from './friends';
@@ -272,6 +273,7 @@ const server = createServer(async (req, res) => {
 			return sendJson(res, 200, { clarity });
 		}
 		if (url.pathname.startsWith('/api/progress') && (await handleProgress(req, res, url))) return;
+		if (url.pathname.startsWith('/api/rewards') && (await handleRewards(req, res, url))) return;
 		if ((url.pathname === '/api/announcements' || url.pathname.startsWith('/api/admin')) && (await handleAdmin(req, res, url, adminLive))) return;
 		if ((url.pathname === '/api/ask' || url.pathname === '/api/ask/status' || url.pathname === '/api/ask/review') && (await handleAsk(req, res, url))) return;
 		if (
@@ -457,6 +459,7 @@ server.on('upgrade', (req, socket, head) => {
 
 await initAccounts();
 await migrateProgress();
+await migrateRewards();
 await migrateAdmin();
 store = makeStore(DATA_DIR);
 

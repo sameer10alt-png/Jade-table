@@ -1,8 +1,9 @@
 // "Ask the table" — an LLM mahjong assistant. The API key lives only here, as a Railway env
 // var (ASK_API_KEY); the browser never sees it. Works with any OpenAI-compatible chat API.
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { accountsEnabled, currentUser } from './accounts';
+import { accountsEnabled, currentUser, getDb } from './accounts';
 import { noteDragonUse, siteSettings } from './admin';
+import { useDragonToken } from './rewards';
 
 /** questions per account per day (protects the monthly bill) */
 /** questions + reviews per player per day (admin can change it) */
@@ -90,7 +91,8 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 	const today = new Date().toISOString().slice(0, 10);
 	const d = daily.get(user.id);
 	const used = d?.day === today ? d.n : 0;
-	if (used >= dailyLimit()) return json(429, { error: 'You have reached today’s question limit. Come back tomorrow.' });
+	const overLimit = used >= dailyLimit();
+	if (overLimit && !(await hasToken(user.id))) return json(429, { error: 'You have reached today’s question limit. Get Dragon tokens in the Jade shop, or come back tomorrow.', shop: true });
 
 	let body = '';
 	for await (const c of req) {
@@ -113,6 +115,7 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 	const earlier = clean.slice(0, -1).filter((m) => m.role === 'user').slice(-3).map((m) => m.content);
 	const spam = spamReason(q, earlier);
 	if (spam) return json(200, { reply: spam === 'chatter' ? CHAT_REPLY : SPAM_REPLY, spam: true });
+	if (overLimit && !(await useDragonToken(user.id))) return json(429, { error: 'You are out of Dragon tokens.', shop: true });
 	daily.set(user.id, { day: today, n: used + 1 });
 	noteDragonUse(user.id, 'ask');
 
@@ -142,7 +145,8 @@ async function review(req: IncomingMessage, json: (status: number, data: unknown
 	const today = new Date().toISOString().slice(0, 10);
 	const d = daily.get(user.id);
 	const used = d?.day === today ? d.n : 0;
-	if (used >= dailyLimit()) return json(429, { error: 'You have reached today’s Dragon limit. Come back tomorrow.' });
+	const overLimit = used >= dailyLimit();
+	if (overLimit && !(await hasToken(user.id))) return json(429, { error: 'You have reached today’s Dragon limit. Get Dragon tokens in the Jade shop, or come back tomorrow.', shop: true });
 
 	let body = '';
 	for await (const c of req) {
@@ -157,6 +161,7 @@ async function review(req: IncomingMessage, json: (status: number, data: unknown
 	}
 	const log = typeof data.log === 'string' ? data.log.slice(0, 16000) : '';
 	if (!/Move \d+:/.test(log)) return json(400, { error: 'Play a few moves first, then ask for a review.' });
+	if (overLimit && !(await useDragonToken(user.id))) return json(429, { error: 'You are out of Dragon tokens.', shop: true });
 	daily.set(user.id, { day: today, n: used + 1 });
 	noteDragonUse(user.id, 'review');
 
@@ -201,4 +206,12 @@ export function parseReview(raw: string) {
 	} catch {
 		return null;
 	}
+}
+
+/** does this player have a Dragon token left? */
+async function hasToken(userId: number): Promise<boolean> {
+	const db = getDb();
+	if (!db) return false;
+	const { rows } = await db.query<{ n: number }>(`select dragon_tokens as n from users where id = $1`, [userId]);
+	return (rows[0]?.n ?? 0) > 0;
 }

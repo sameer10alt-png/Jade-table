@@ -523,6 +523,13 @@
 					</label>
 				</div>
 				<button class="btn primary" onclick={() => saveSettings({ turnSeconds, claimSeconds, dragonLimit, fillPace })}>Save game controls</button>
+				<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap;align-items:center">
+					<b>Lucky Hour (double Jade):</b>
+					<button class="btn" onclick={() => saveSettings({ luckyMinutes: 30 })}>Start 30 min</button>
+					<button class="btn" onclick={() => saveSettings({ luckyMinutes: 60 })}>Start 1 hour</button>
+					<button class="btn" onclick={() => saveSettings({ luckyMinutes: 0 })}>Stop</button>
+					<small>Scheduled ones run daily at 00:00 and 18:00 UTC.</small>
+				</div>
 			</section>
 			<section class="card">
 				<h2>The Dragon</h2>
