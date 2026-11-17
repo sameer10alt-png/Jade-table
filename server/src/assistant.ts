@@ -92,7 +92,7 @@ export async function handleAsk(req: IncomingMessage, res: ServerResponse, url: 
 	const d = daily.get(user.id);
 	const used = d?.day === today ? d.n : 0;
 	const overLimit = used >= dailyLimit();
-	if (overLimit && !(await hasToken(user.id))) return json(429, { error: 'You have reached today’s question limit. Get Dragon tokens in the Jade shop, or come back tomorrow.', shop: true });
+	if (overLimit && !(await hasToken(user.id))) return json(429, { error: `You have used your ${dailyLimit()} Dragon questions for today. Come back tomorrow.` });
 
 	let body = '';
 	for await (const c of req) {
@@ -146,7 +146,7 @@ async function review(req: IncomingMessage, json: (status: number, data: unknown
 	const d = daily.get(user.id);
 	const used = d?.day === today ? d.n : 0;
 	const overLimit = used >= dailyLimit();
-	if (overLimit && !(await hasToken(user.id))) return json(429, { error: 'You have reached today’s Dragon limit. Get Dragon tokens in the Jade shop, or come back tomorrow.', shop: true });
+	if (overLimit && !(await hasToken(user.id))) return json(429, { error: `You have used your ${dailyLimit()} Dragon uses for today. Come back tomorrow.` });
 
 	let body = '';
 	for await (const c of req) {

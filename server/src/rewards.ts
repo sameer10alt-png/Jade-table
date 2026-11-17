@@ -29,7 +29,7 @@ export const lucky = () => luckyState(Date.now(), siteSettings().luckyUntil);
 /** Jade for one finished, counted hand (called once per hand per account). */
 export async function awardHand(userId: number, outcome: string, withPeople: boolean): Promise<number> {
 	const db = getDb();
-	if (!db) return 0;
+	if (!db || !siteSettings().jade) return 0;
 	let n = handJade(outcome, withPeople, lucky().active);
 	if (outcome === 'win') {
 		const first = await db.query(
@@ -93,7 +93,7 @@ export async function handleRewards(req: IncomingMessage, res: ServerResponse, u
 	};
 	const db = getDb();
 	const luck = lucky();
-	if (!db) return send(200, { enabled: false, lucky: luck });
+	if (!db || !siteSettings().jade) return send(200, { enabled: false, lucky: null });
 	const user = await currentUser(req);
 	if (url.pathname === '/api/rewards' && req.method === 'GET') {
 		return send(200, user ? { enabled: true, signedIn: true, lucky: luck, ...(await stateOf(user.id)) } : { enabled: true, signedIn: false, lucky: luck });

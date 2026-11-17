@@ -47,7 +47,7 @@
 	<title>{APP_NAME}</title>
 </svelte:head>
 
-{#if !bare && rewards.lucky?.active}
+{#if !bare && rewards.enabled && rewards.lucky?.active}
 	<a class="luckybar" href="/shop"><b>Lucky Hour!</b> Double Jade on every hand right now.</a>
 {/if}
 {#if !bare}
@@ -64,7 +64,7 @@
 					{#if account.user.isAdmin}<a class="link" href="/admin" class:on={here('/admin')}>Admin</a>{/if}
 					<a class="link" href="/progress" class:on={here('/progress')}>Progress</a>
 					<a class="link" href="/friends" class:on={here('/friends')}>Friends</a>
-					<JadeBadge />
+					{#if rewards.enabled}<JadeBadge />{/if}
 					<Bell />
 					<a class="me desk" href="/account" title="Your account" aria-label="Your account">
 						{#if account.user.picture}
@@ -91,7 +91,7 @@
 						<a href="/rules/taiwanese" class:on={here('/rules')}>Rules</a>
 						<a href="/practice" class:on={here('/practice')}>Practice <span class="new">New</span></a>
 						{#if account.user}<a href="/progress" class:on={here('/progress')}>Progress</a>{/if}
-						<a href="/shop" class:on={here('/shop')}>Jade shop{#if account.user} · {rewards.jade.toLocaleString()}{/if}</a>
+						{#if rewards.enabled}<a href="/shop" class:on={here('/shop')}>Jade shop{#if account.user} · {rewards.jade.toLocaleString()}{/if}</a>{/if}
 						{#if account.user?.isAdmin}<a href="/admin" class:on={here('/admin')}>Admin</a>{/if}
 						<a href="/ask" class:on={here('/ask')}>The Dragon<span class="new">New</span></a>
 						<hr />
@@ -121,7 +121,7 @@
 <Announcements />
 
 <!-- outside the header on purpose: pop-ups show on the game table too -->
-{#if account.user}<Toasts /><JadeGain />{/if}
+{#if account.user}<Toasts />{#if rewards.enabled}<JadeGain />{/if}{/if}
 
 {#if !bare}
 	<footer class="wrap foot">
