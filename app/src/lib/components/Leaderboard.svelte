@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Avatar from './Avatar.svelte';
 
-	// Top players by wins at online tables, this week or all time.
+	// Top 3 players by wins (every counted game), this week or all time.
 	type Row = { name: string; picture: string | null; wins: number; hands: number };
 	let period = $state<'week' | 'all'>('week');
 	let rows = $state<Row[] | null>(null);
@@ -43,13 +43,13 @@
 			<button role="tab" aria-selected={period === 'all'} class:on={period === 'all'} onclick={() => (period = 'all')}>All time</button>
 		</div>
 	</header>
-	<p class="sub">Most wins in online games.</p>
+	<p class="sub">Most wins, online and against bots.</p>
 	{#if failed}
 		<p class="empty">Couldn't load the leaderboard. Try again in a moment.</p>
 	{:else if rows === null}
 		<p class="empty">Loading…</p>
 	{:else if rows.length === 0}
-		<p class="empty">No wins yet {period === 'week' ? 'this week' : ''}. <a href="/online">Play online</a> and take the top spot.</p>
+		<p class="empty">No wins yet {period === 'week' ? 'this week' : ''}. <a href="/quick">Play a game</a> and take the top spot.</p>
 	{:else}
 		<ol>
 			{#each rows as r, i (r.name + i)}
