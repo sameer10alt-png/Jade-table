@@ -46,7 +46,12 @@ export function restoreSkins() {
 
 let known: number | null = null;
 function take(d: Record<string, unknown>, quiet = false) {
-	rewards.enabled = !!d.enabled || rewards.enabled;
+	rewards.enabled = !!d.enabled;
+	if (!rewards.enabled) {
+		rewards.lucky = null;
+		applySkins({});
+		return;
+	}
 	if ('signedIn' in d) rewards.signedIn = !!d.signedIn;
 	if (d.lucky) rewards.lucky = d.lucky as Lucky;
 	if (typeof d.jade !== 'number') return;

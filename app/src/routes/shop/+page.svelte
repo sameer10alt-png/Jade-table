@@ -48,6 +48,10 @@
 
 <main class="wrap">
 	<p class="kicker">Jade shop</p>
+	{#if !rewards.enabled && !account.user?.isAdmin}
+		<h1>Coming soon</h1>
+		<p class="sub">Earn coins by playing and unlock new tiles and tables. <a href="/">Play a game</a> while you wait.</p>
+	{:else}
 	<h1>Earn Jade. Make the table yours.</h1>
 
 	<section class="top">
@@ -134,6 +138,7 @@
 			</div>
 		{/each}
 	</div>
+	{/if}
 </main>
 
 {#snippet buy(i: ShopItem)}

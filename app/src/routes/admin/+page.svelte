@@ -524,6 +524,11 @@
 				</div>
 				<button class="btn primary" onclick={() => saveSettings({ turnSeconds, claimSeconds, dragonLimit, fillPace })}>Save game controls</button>
 				<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap;align-items:center">
+					<b>Jade coins + shop:</b>
+					<button class="btn" onclick={() => saveSettings({ jade: true })}>Turn on</button>
+					<button class="btn" onclick={() => saveSettings({ jade: false })}>Turn off</button>
+				</div>
+				<div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap;align-items:center">
 					<b>Lucky Hour (double Jade):</b>
 					<button class="btn" onclick={() => saveSettings({ luckyMinutes: 30 })}>Start 30 min</button>
 					<button class="btn" onclick={() => saveSettings({ luckyMinutes: 60 })}>Start 1 hour</button>
