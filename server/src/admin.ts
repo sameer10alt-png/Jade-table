@@ -41,7 +41,7 @@ const settings = {
 	/** online claim window, seconds */
 	claimSeconds: 15,
 	/** Dragon questions + reviews per player per day */
-	dragonLimit: 80,
+	dragonLimit: 5,
 	/** quick match: how long before empty seats fill (1 = normal) */
 	fillPace: 1,
 	/** Lucky Hour started by an admin: double Jade until this time (ms) */
@@ -98,6 +98,10 @@ export async function migrateAdmin() {
 			n integer not null default 0,
 			primary key (day, user_id, kind)
 		)`);
+	// one-time: Dragon goes to 5 free uses a day (Jade tokens and Pro cover the rest)
+	const moved = await db.query(`insert into site_settings (key, value) values ('dragonLimit5', 'true') on conflict do nothing returning key`);
+	if (moved.rows.length)
+		await db.query(`insert into site_settings (key, value) values ('dragonLimit', '5') on conflict (key) do update set value = '5'`);
 	const { rows } = await db.query<{ key: string; value: unknown }>(`select key, value from site_settings`);
 	for (const r of rows) {
 		if (r.key === 'maintenance') settings.maintenance = typeof r.value === 'string' && r.value ? r.value : null;

@@ -181,7 +181,7 @@
 	// ---- game settings form ----
 	let turnSeconds = $state(30);
 	let claimSeconds = $state(15);
-	let dragonLimit = $state(80);
+	let dragonLimit = $state(5);
 	let fillPace = $state(1);
 	function syncForm() {
 		if (!ov) return;
