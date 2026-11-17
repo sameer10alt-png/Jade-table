@@ -43,7 +43,9 @@ const settings = {
 	/** Dragon questions + reviews per player per day */
 	dragonLimit: 80,
 	/** quick match: how long before empty seats fill (1 = normal) */
-	fillPace: 1
+	fillPace: 1,
+	/** Lucky Hour started by an admin: double Jade until this time (ms) */
+	luckyUntil: 0
 };
 export const siteSettings = () => settings;
 const NUMERIC = { turnSeconds: [10, 120], claimSeconds: [5, 60], dragonLimit: [0, 1000], fillPace: [0.5, 6] } as const;
@@ -100,6 +102,7 @@ export async function migrateAdmin() {
 	for (const r of rows) {
 		if (r.key === 'maintenance') settings.maintenance = typeof r.value === 'string' && r.value ? r.value : null;
 		if (r.key === 'dragon') settings.dragon = r.value !== false;
+		if (r.key === 'luckyUntil' && typeof r.value === 'number') settings.luckyUntil = r.value;
 		if (r.key in NUMERIC && typeof r.value === 'number') (settings as Record<string, unknown>)[r.key] = r.value;
 	}
 	applyLive();
@@ -395,6 +398,11 @@ export async function handleAdmin(req: IncomingMessage, res: ServerResponse, url
 		if ('dragon' in b) {
 			settings.dragon = b.dragon !== false;
 			await db.query(`insert into site_settings (key, value) values ('dragon', $1) on conflict (key) do update set value = $1`, [JSON.stringify(settings.dragon)]);
+		}
+		if ('luckyMinutes' in b) {
+			const m = Math.max(0, Math.min(24 * 60, Number(b.luckyMinutes) || 0));
+			settings.luckyUntil = m ? Date.now() + m * 60_000 : 0;
+			await db.query(`insert into site_settings (key, value) values ('luckyUntil', $1) on conflict (key) do update set value = $1`, [JSON.stringify(settings.luckyUntil)]);
 		}
 		for (const [key, [lo, hi]] of Object.entries(NUMERIC)) {
 			if (!(key in b)) continue;

@@ -10,17 +10,26 @@
 	import Toasts from '#lib/components/Toasts.svelte';
 	import Announcements from '#lib/components/Announcements.svelte';
 	import { startAnalytics } from '#lib/analytics.ts';
+	import JadeBadge from '#lib/components/JadeBadge.svelte';
+	import JadeGain from '#lib/components/JadeGain.svelte';
+	import { restoreSkins, rewards, startRewards, stopRewards } from '#lib/rewards.svelte.ts';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
 	onMount(() => {
+		restoreSkins();
 		loadAccount();
 		startAnalytics();
 	});
 	// badge polling runs only while someone is signed in (it also marks them online for friends)
 	$effect(() => {
-		if (account.user) startNotify();
-		else stopNotify();
+		if (account.user) {
+			startNotify();
+			startRewards();
+		} else {
+			stopNotify();
+			if (account.loaded) stopRewards();
+		}
 	});
 	// phones: the links fold into a ☰ menu (the bell stays outside, so invites are one tap away)
 	let menu = $state(false);
@@ -38,6 +47,9 @@
 	<title>{APP_NAME}</title>
 </svelte:head>
 
+{#if !bare && rewards.lucky?.active}
+	<a class="luckybar" href="/shop"><b>Lucky Hour!</b> Double Jade on every hand right now.</a>
+{/if}
 {#if !bare}
 	<header class="top">
 		<div class="wrap bar">
@@ -52,6 +64,7 @@
 					{#if account.user.isAdmin}<a class="link" href="/admin" class:on={here('/admin')}>Admin</a>{/if}
 					<a class="link" href="/progress" class:on={here('/progress')}>Progress</a>
 					<a class="link" href="/friends" class:on={here('/friends')}>Friends</a>
+					<JadeBadge />
 					<Bell />
 					<a class="me desk" href="/account" title="Your account" aria-label="Your account">
 						{#if account.user.picture}
@@ -78,6 +91,7 @@
 						<a href="/rules/taiwanese" class:on={here('/rules')}>Rules</a>
 						<a href="/practice" class:on={here('/practice')}>Practice <span class="new">New</span></a>
 						{#if account.user}<a href="/progress" class:on={here('/progress')}>Progress</a>{/if}
+						<a href="/shop" class:on={here('/shop')}>Jade shop{#if account.user} · {rewards.jade.toLocaleString()}{/if}</a>
 						{#if account.user?.isAdmin}<a href="/admin" class:on={here('/admin')}>Admin</a>{/if}
 						<a href="/ask" class:on={here('/ask')}>The Dragon<span class="new">New</span></a>
 						<hr />
@@ -107,7 +121,7 @@
 <Announcements />
 
 <!-- outside the header on purpose: pop-ups show on the game table too -->
-{#if account.user}<Toasts />{/if}
+{#if account.user}<Toasts /><JadeGain />{/if}
 
 {#if !bare}
 	<footer class="wrap foot">
@@ -117,6 +131,15 @@
 {/if}
 
 <style>
+	.luckybar {
+		display: block;
+		text-align: center;
+		padding: 7px 12px;
+		background: linear-gradient(90deg, #1e7a58, #c2892b, #1e7a58);
+		color: #fff;
+		font-size: 0.9rem;
+		text-decoration: none;
+	}
 	.top {
 		border-bottom: 1px solid var(--line);
 		background: var(--bg);

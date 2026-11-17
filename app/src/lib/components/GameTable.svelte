@@ -15,6 +15,7 @@
 	import { kindName, SORT_MODES, sortHand, WIND_NAMES, WIND_SHORT, type SortMode, type Tile as T } from '#lib/engine/tiles.ts';
 	import type { Action, ClaimOption, GameState } from '#lib/engine/types.ts';
 	import type { SeatFriend } from '#lib/online/friends.svelte.ts';
+	import { refreshRewards } from '#lib/rewards.svelte.ts';
 
 	let {
 		game,
@@ -69,6 +70,13 @@
 	} = $props();
 
 	const ME = $derived(seat);
+	// a finished hand earns Jade on the server: show it a moment later
+	let jadeHand = -1;
+	$effect(() => {
+		if (game.phase !== 'ended' || game.handNo === jadeHand) return;
+		jadeHand = game.handNo;
+		setTimeout(refreshRewards, 1500);
+	});
 	let selected = $state<number | null>(null);
 	let riichiMode = $state(false);
 	let passPick = $state<number[]>([]);
