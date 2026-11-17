@@ -138,15 +138,17 @@ export function shuffle<T>(arr: T[], seed: number): [T[], number] {
  * shapes, then loose tiles, each group in suit order. Jokers and flowers go last.
  */
 /** ways a player can sort their hand */
-export type SortMode = 'suit' | 'number' | 'honoursFirst' | 'sets';
+export type SortMode = 'pungs' | 'chows' | 'pairs' | 'suit' | 'number' | 'honoursFirst';
 export const SORT_MODES: { id: SortMode; label: string }[] = [
+	{ id: 'pungs', label: 'Pungs first' },
+	{ id: 'chows', label: 'Chows first' },
+	{ id: 'pairs', label: 'Pairs first' },
 	{ id: 'suit', label: 'By suit' },
 	{ id: 'number', label: 'By number' },
-	{ id: 'honoursFirst', label: 'Honours first' },
-	{ id: 'sets', label: 'Group sets' }
+	{ id: 'honoursFirst', label: 'Honours first' }
 ];
 export function sortHand(tiles: Tile[], mode: SortMode): Tile[] {
-	if (mode === 'sets') return organiseTiles(tiles);
+	if (mode === 'pungs' || mode === 'chows' || mode === 'pairs') return organiseTiles(tiles, mode);
 	if (mode === 'suit') return sortTiles(tiles);
 	const key = (k: Kind) => {
 		const base = sortKey(k);
@@ -156,7 +158,7 @@ export function sortHand(tiles: Tile[], mode: SortMode): Tile[] {
 	return [...tiles].sort((a, b) => key(a.k) - key(b.k) || a.id - b.id);
 }
 
-export function organiseTiles(tiles: Tile[]): Tile[] {
+export function organiseTiles(tiles: Tile[], first: 'pungs' | 'chows' | 'pairs' = 'pungs'): Tile[] {
 	let rest = sortTiles(tiles);
 	const take = (pick: (t: Tile, pool: Tile[]) => Tile[] | null) => {
 		const out: Tile[][] = [];
@@ -188,12 +190,23 @@ export function organiseTiles(tiles: Tile[]): Tile[] {
 		}
 		return seq;
 	};
-	const pungs = take((t, p) => same(t, p, 3));
-	const runs = take((t, p) => run(t, p, 3));
-	const pairs = take((t, p) => same(t, p, 2));
-	const twos = take((t, p) => run(t, p, 2));
+	const bySuit = (gs: Tile[][]) => gs.sort((a, b) => sortKey(a[0].k) - sortKey(b[0].k)).flat();
+	const pungsOf = () => bySuit(take((t, p) => same(t, p, 3)));
+	const chowsOf = () => bySuit(take((t, p) => run(t, p, 3)));
+	const pairsOf = () => bySuit(take((t, p) => same(t, p, 2)));
+	let groups: Tile[][];
+	if (first === 'chows') {
+		const c = chowsOf();
+		groups = [c, pungsOf(), pairsOf()];
+	} else if (first === 'pairs') {
+		const pr = pairsOf();
+		groups = [pr, pungsOf(), chowsOf()];
+	} else {
+		const pg = pungsOf();
+		groups = [pg, chowsOf(), pairsOf()];
+	}
+	const twos = bySuit(take((t, p) => run(t, p, 2)));
 	const extras = rest.filter((t) => isJoker(t.k) || isFlower(t.k));
 	const loose = rest.filter((t) => !isJoker(t.k) && !isFlower(t.k));
-	const bySuit = (gs: Tile[][]) => gs.sort((a, b) => sortKey(a[0].k) - sortKey(b[0].k));
-	return [...bySuit([...pungs, ...runs]).flat(), ...bySuit([...pairs, ...twos]).flat(), ...loose, ...extras];
+	return [...groups.flat(), ...twos, ...loose, ...extras];
 }

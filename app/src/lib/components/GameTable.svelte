@@ -129,7 +129,7 @@
 	function savedSort(): SortMode {
 		try {
 			const v = localStorage.getItem('pt.sort');
-			return SORT_MODES.some((m) => m.id === v) ? (v as SortMode) : 'suit';
+			return v === 'sets' ? 'pungs' : SORT_MODES.some((m) => m.id === v) ? (v as SortMode) : 'suit';
 		} catch {
 			return 'suit';
 		}
