@@ -323,7 +323,7 @@ const server = createServer(async (req, res) => {
 			return sendJson(res, 200, qm[1] === 'now' ? await quick.now(pid) : await quick.status(pid));
 		}
 
-		// Leaderboard: top 3 by online wins, this week or all time (cached until the next online win)
+		// Leaderboard: top 3 by wins (online and vs bots), this week or all time (cached until the next win)
 		if (url.pathname === '/api/leaderboard' && req.method === 'GET') {
 			const period = url.searchParams.get('period') === 'week' ? 'week' : 'all';
 			const hit = boardCache.get(period);

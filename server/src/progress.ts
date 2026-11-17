@@ -109,7 +109,7 @@ async function ratingOf(userId: number): Promise<number> {
 }
 
 /** Save one rated hand for one account. Returns the new rating, or null if already counted. */
-/** bumped on every new online win, so the leaderboard refreshes straight after a game */
+/** bumped on every new win, so the leaderboard refreshes straight after a game */
 let boardVersion = 0;
 export const leaderboardVersion = () => boardVersion;
 
@@ -123,7 +123,7 @@ async function applyHand(userId: number, outcome: HandOutcome, delta: number, so
 		[userId, outcome, after - before, after, source, key, variant]
 	);
 	if (!ins.rows.length) return null;
-	if (source === 'online' && outcome === 'win') boardVersion++;
+	if (outcome === 'win') boardVersion++;
 	const col = outcome === 'win' ? 'wins' : outcome === 'draw' ? 'draws' : 'losses';
 	await db.query(`update users set rating = $2, ${col} = ${col} + 1 where id = $1`, [userId, after]);
 	const jade = await awardHand(userId, outcome, source === 'online').catch((e) => (console.error('jade', e), 0));
@@ -312,7 +312,7 @@ export async function leaderboard(period: 'week' | 'all', limit = 3) {
 		        count(*) filter (where e.outcome = 'win') as wins,
 		        count(*) as hands
 		   from rating_events e join users u on u.id = e.user_id
-		  where e.source <> 'bots' and not u.banned ${since}
+		  where not u.banned ${since}
 		  group by u.id, u.name, u.picture
 		 having count(*) filter (where e.outcome = 'win') > 0
 		  order by wins desc, hands asc, u.id asc
