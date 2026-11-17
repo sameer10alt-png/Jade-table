@@ -109,6 +109,10 @@ async function ratingOf(userId: number): Promise<number> {
 }
 
 /** Save one rated hand for one account. Returns the new rating, or null if already counted. */
+/** bumped on every new online win, so the leaderboard refreshes straight after a game */
+let boardVersion = 0;
+export const leaderboardVersion = () => boardVersion;
+
 async function applyHand(userId: number, outcome: HandOutcome, delta: number, source: string, key: string, variant: string | null = null) {
 	const db = getDb()!;
 	const before = await ratingOf(userId);
@@ -119,6 +123,7 @@ async function applyHand(userId: number, outcome: HandOutcome, delta: number, so
 		[userId, outcome, after - before, after, source, key, variant]
 	);
 	if (!ins.rows.length) return null;
+	if (source === 'online' && outcome === 'win') boardVersion++;
 	const col = outcome === 'win' ? 'wins' : outcome === 'draw' ? 'draws' : 'losses';
 	await db.query(`update users set rating = $2, ${col} = ${col} + 1 where id = $1`, [userId, after]);
 	const jade = await awardHand(userId, outcome, source === 'online').catch((e) => (console.error('jade', e), 0));
@@ -298,7 +303,7 @@ export async function accountProfiles(ids: number[]) {
 
 /** Top players by wins at online tables (checked by the server, so they can't be faked).
  *  Solo games against the computer don't count: their results come from the browser. */
-export async function leaderboard(period: 'week' | 'all', limit = 10) {
+export async function leaderboard(period: 'week' | 'all', limit = 3) {
 	const db = getDb();
 	if (!db) return [];
 	const since = period === 'week' ? `and e.created_at > now() - interval '7 days'` : '';

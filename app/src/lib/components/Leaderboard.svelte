@@ -7,23 +7,37 @@
 	let rows = $state<Row[] | null>(null);
 	let failed = $state(false);
 
-	$effect(() => {
-		const p = period;
-		rows = null;
-		failed = false;
-		fetch(`/api/leaderboard?period=${p}`)
+	function load(p: 'week' | 'all', quiet = false) {
+		if (!quiet) {
+			rows = null;
+			failed = false;
+		}
+		fetch(`/api/leaderboard?period=${p}`, { cache: 'no-store' })
 			.then((r) => r.json())
 			.then((d: { players: Row[] }) => {
 				if (p === period) rows = d.players ?? [];
 			})
-			.catch(() => (failed = true));
+			.catch(() => {
+				if (!quiet) failed = true;
+			});
+	}
+	$effect(() => load(period));
+	// stay fresh: re-check every 30s and whenever the tab comes back into view
+	$effect(() => {
+		const tick = () => document.visibilityState === 'visible' && load(period, true);
+		const t = setInterval(tick, 30_000);
+		document.addEventListener('visibilitychange', tick);
+		return () => {
+			clearInterval(t);
+			document.removeEventListener('visibilitychange', tick);
+		};
 	});
 	const MEDAL = ['🥇', '🥈', '🥉'];
 </script>
 
 <section class="board" aria-labelledby="board-title">
 	<header>
-		<h2 id="board-title">Top players</h2>
+		<h2 id="board-title">Top 3 players</h2>
 		<div class="tabs" role="tablist">
 			<button role="tab" aria-selected={period === 'week'} class:on={period === 'week'} onclick={() => (period = 'week')}>This week</button>
 			<button role="tab" aria-selected={period === 'all'} class:on={period === 'all'} onclick={() => (period = 'all')}>All time</button>
