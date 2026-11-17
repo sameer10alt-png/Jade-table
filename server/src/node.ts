@@ -18,6 +18,7 @@ import { accountPid, currentUser, getDb, handleAuth, initAccounts, SKILL_TO_LEVE
 import { dragonUsedToday, handleAsk } from './assistant';
 import { handleAdmin, migrateAdmin, type AdminLive } from './admin';
 import { handleRewards, migrateRewards } from './rewards';
+import { leaderboardVersion } from './progress';
 import { accountProfiles, botStats, handleProgress, leaderboard, migrateProgress, rateOnlineHand } from './progress';
 import { forgetMember, makeStore, myTables, rememberMember, type TableStore } from './storage';
 import { handleFriends } from './friends';
@@ -174,7 +175,7 @@ async function newCode() {
 // Quick match: the matched players are seated at a new table that starts by itself once they
 // arrive, or after QUICK_ARRIVE (whoever isn't there by then is covered by a bot).
 const QUICK_ARRIVE = 15_000;
-const boardCache = new Map<string, { at: number; data: unknown }>();
+const boardCache = new Map<string, { at: number; v: number; data: unknown }>();
 const quick = new QuickQueue(async (variant, players, fill) => {
 	const code = await newCode();
 	const t = new NodeTable(null);
@@ -322,13 +323,14 @@ const server = createServer(async (req, res) => {
 			return sendJson(res, 200, qm[1] === 'now' ? await quick.now(pid) : await quick.status(pid));
 		}
 
-		// Leaderboard: most online wins, this week or all time (cached for a minute)
+		// Leaderboard: top 3 by online wins, this week or all time (cached until the next online win)
 		if (url.pathname === '/api/leaderboard' && req.method === 'GET') {
 			const period = url.searchParams.get('period') === 'week' ? 'week' : 'all';
 			const hit = boardCache.get(period);
-			if (hit && Date.now() - hit.at < 60_000) return sendJson(res, 200, hit.data);
+			const v = leaderboardVersion();
+			if (hit && hit.v === v && Date.now() - hit.at < 10 * 60_000) return sendJson(res, 200, hit.data);
 			const data = { period, players: await leaderboard(period) };
-			boardCache.set(period, { at: Date.now(), data });
+			boardCache.set(period, { at: Date.now(), v, data });
 			return sendJson(res, 200, data);
 		}
 
