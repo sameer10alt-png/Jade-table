@@ -235,6 +235,13 @@
 		if (!game || !L) return '';
 		if (game.phase === 'seating') return L.roll ? 'Roll the dice: the highest total sits East' : 'Waiting for the others to roll…';
 		if (game.phase === 'wallbreak') return L.roll ? 'You are the dealer: roll to break the wall' : `${game.players[game.dealer].name} is breaking the wall…`;
+		if (game.phase === 'passing' && game.passing?.kind === 'charleston') {
+			const ps = game.passing;
+			if (ps.stage === 'vote') return L.vote ? 'First Charleston done. Do a second Charleston?' : 'Waiting for the others to vote…';
+			if (ps.stage === 'courtesy') return L.pass3 ? 'Courtesy pass: pick 0–3 tiles for the player across (optional)' : 'Waiting for the courtesy pass…';
+			const dir = ['right', 'across', 'left', 'left', 'across', 'right'][ps.round];
+			return L.pass3 ? `Charleston${ps.round < 3 ? '' : ' (second)'}: choose 3 tiles to pass ${dir}` : 'Waiting for the others to pass…';
+		}
 		if (game.phase === 'passing') return L.pass3 ? `Goulash: choose 3 tiles to pass ${['right', 'across', 'left'][game.passing!.round]}` : 'Waiting for the others to pass…';
 		if (game.phase === 'claim') {
 			if (L.claims.length) return `${game.players[game.claim!.from].name} discarded ${kindName(game.claim!.tile.k)}`;
@@ -274,7 +281,7 @@
 	const turnLabel = $derived.by(() => {
 		if (!game) return '';
 		if (game.phase === 'claim') return 'Calls…';
-		if (game.phase === 'passing') return 'Passing';
+		if (game.phase === 'passing') return game.passing?.kind === 'charleston' ? 'Charleston' : 'Passing';
 		if (game.phase === 'seating') return 'Rolling for seats';
 		if (game.phase === 'wallbreak') return 'Breaking the wall';
 		if (game.phase !== 'turn') return '';
@@ -449,6 +456,13 @@
 				{:else if L.roll}
 					<button class="btn primary wide" onclick={() => send({ t: 'roll' })}>
 						{game.phase === 'seating' ? 'Roll the dice' : 'Break the wall'}
+					</button>
+				{:else if game.phase === 'passing' && L.vote}
+					<button class="btn primary" onclick={() => send({ t: 'charlestonVote', yes: true })}>Second Charleston</button>
+					<button class="btn" onclick={() => send({ t: 'charlestonVote', yes: false })}>Stop</button>
+				{:else if game.phase === 'passing' && L.courtesy}
+					<button class="btn primary wide" onclick={() => { send({ t: 'pass3', tiles: passPick }); passPick = []; }}>
+						{passPick.length ? `Pass ${passPick.length} across` : 'Skip courtesy pass'}
 					</button>
 				{:else if game.phase === 'passing' && L.pass3}
 					<button class="btn primary wide" disabled={passPick.length !== 3} onclick={() => { send({ t: 'pass3', tiles: passPick }); passPick = []; }}>

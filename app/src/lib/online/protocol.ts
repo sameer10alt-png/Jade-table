@@ -10,6 +10,8 @@ export interface TableSettings {
 	botLevel: BotLevel | 'mixed';
 	minimum: boolean;
 	redFives: boolean;
+	/** pass tiles before each hand (the Charleston) */
+	charleston?: boolean;
 }
 
 export interface SeatInfo {

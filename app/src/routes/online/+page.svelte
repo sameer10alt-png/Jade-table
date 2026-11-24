@@ -20,6 +20,7 @@
 
 	// how many people are waiting per game right now (refreshed while you look)
 	let waitingNow = $state<Record<string, number>>({});
+	let charleston = $state(false);
 	onMount(() => {
 		(async () => {
 			me = identity();
@@ -49,7 +50,7 @@
 		busy = true;
 		error = '';
 		try {
-			const code = await createTable({ variant, rounds, botLevel, minimum: true, redFives: true }, me.id);
+			const code = await createTable({ variant, rounds, botLevel, minimum: true, redFives: true, charleston }, me.id);
 			goto(`/online/${code}`);
 		} catch (e) {
 			error = `Could not reach the game server. Is it running? (${(e as Error).message})`;
@@ -141,6 +142,10 @@
 					<option value={4}>Full game (four rounds)</option>
 				</select>
 			</label>
+			<label class="check">
+				<input type="checkbox" bind:checked={charleston} />
+				<span>Charleston before each hand</span>
+			</label>
 			<button class="btn primary big" disabled={busy} onclick={create}>Create table</button>
 		</section>
 
@@ -162,6 +167,13 @@
 </main>
 
 <style>
+	label.check {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 8px;
+		font-weight: 500;
+	}
 	h1 {
 		margin: 6px 0 8px;
 		font-size: clamp(1.8rem, 4vw, 2.6rem);
