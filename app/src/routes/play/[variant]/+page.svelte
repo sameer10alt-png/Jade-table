@@ -17,7 +17,7 @@
 	let rounds = $state(1);
 	let minimum = $state(true);
 	let redFives = $state(true);
-	let charleston = $state(false);
+	let charleston = $state(typeof location !== 'undefined' && new URLSearchParams(location.search).get('charleston') === '1');
 	let blocking = $state(false);
 	/** signed in: run the game on the server so it can be continued on any device */
 	let toAccount = $state(true);
