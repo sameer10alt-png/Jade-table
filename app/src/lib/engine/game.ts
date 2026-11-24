@@ -1,4 +1,5 @@
 import { handCounts, isStandardComplete, shantenOf, winningKinds } from './hand';
+import { american, cls } from './variants/american';
 import { buildTiles, isFlower, isJoker, isSuited, kindName, nextRandom, num, shuffle, sortTiles, WIND_NAMES, type Kind, type Tile } from './tiles';
 import type { Action, ClaimOption, GameOptions, GameState, HandResult, Meld, Player, WinResult } from './types';
 import type { Scored, Variant, WinContext } from './variant';
@@ -7,7 +8,7 @@ import { riichi } from './variants/riichi';
 import { book } from './variants/book';
 import { taiwanese } from './variants/taiwanese';
 
-export const VARIANTS: Record<string, Variant> = { taiwanese, riichi, bombay, international: book };
+export const VARIANTS: Record<string, Variant> = { taiwanese, riichi, bombay, international: book, american };
 export const variantOf = (s: GameState) => VARIANTS[s.opts.variant];
 
 export const BOT_NAMES = ['Crane', 'Lotus', 'Tiger', 'Panda'];
@@ -189,7 +190,7 @@ function deal(s: GameState) {
 	s.drawn = extra;
 	for (const seat of order) {
 		const p = s.players[seat];
-		while (p.hand.some((t) => isFlower(t.k))) {
+		while (!v.american && p.hand.some((t) => isFlower(t.k))) {
 			const f = p.hand.find((t) => isFlower(t.k))!;
 			p.hand = p.hand.filter((t) => t.id !== f.id);
 			p.flowers.push(f);
@@ -205,7 +206,7 @@ function deal(s: GameState) {
 	s.afterKong = false;
 	s.firstGoAround = true;
 	log(s, null, 'deal', `${says(s.players[s.dealer], 'deals')}.`);
-	if (s.opts.charleston) {
+	if (s.opts.charleston || v.american) {
 		s.phase = 'passing';
 		s.passing = { round: 0, chosen: [null, null, null, null], kind: 'charleston', stage: 'pass' };
 		s.drawn = null;
@@ -237,7 +238,7 @@ function drawTile(s: GameState, seat: number, fromBack: boolean): Tile | null {
 			t = back ? s.wall.pop() : s.wall.shift();
 		}
 		if (!t) return null;
-		if (isFlower(t.k)) {
+		if (isFlower(t.k) && !v.american) {
 			p.flowers.push(t);
 			log(s, seat, 'flower', `${says(p, 'sets')} aside ${kindName(t.k)}.`, t);
 			back = true;
@@ -346,6 +347,16 @@ function claimOptions(s: GameState, seat: number, tile: Tile, from: number, kind
 	if (checkWin(s, seat, tile, from, kind === 'robkong').scored) opts.push({ type: 'win', use: [] });
 	if (kind === 'robkong' || p.riichi || isJoker(tile.k) || p.passBlock.includes(tile.k)) return opts;
 	if (s.wall.length <= v.reserve) return opts;
+	if (v.american) {
+		// expose a pung, kong or quint: the discard plus 2, 3 or 4 matching tiles or jokers from your hand
+		const same = p.hand.filter((t) => cls(t.k) === cls(tile.k));
+		const jk = p.hand.filter((t) => isJoker(t.k));
+		const pool = [...same, ...jk];
+		([['pung', 2], ['kong', 3], ['quint', 4]] as const).forEach(([type, n]) => {
+			if (pool.length >= n) opts.push({ type, use: pool.slice(0, n).map((t) => t.id) });
+		});
+		return opts;
+	}
 	const nat = p.hand.filter((t) => t.k === tile.k);
 	const jokers = p.hand.filter((t) => isJoker(t.k));
 	if (nat.length >= 2) opts.push({ type: 'pung', use: nat.slice(0, 2).map((t) => t.id) });
@@ -386,6 +397,8 @@ export interface Legal {
 	tsumo: Scored | null;
 	tsumoBlocked?: string;
 	kongs: Kind[];
+	/** American: jokers you can swap out of exposed groups */
+	swaps?: { owner: number; meld: number; tile: number; kind: Kind }[];
 	claims: ClaimOption[];
 	/** roll for seats, or break the wall as dealer */
 	roll: boolean;
@@ -442,7 +455,18 @@ export function legal(s: GameState, seat: number): Legal {
 		L.tsumoBlocked = w.blocked;
 	}
 	const totalKongs = s.players.reduce((a, q) => a + q.melds.filter((m) => m.type === 'kong').length, 0);
-	if (!p.riichi && s.wall.length > v.reserve && totalKongs < 4) {
+	if (v.american) {
+		L.swaps = [];
+		s.players.forEach((q, owner) =>
+			q.melds.forEach((m, mi) => {
+				if (!m.tiles.some((t) => isJoker(t.k))) return;
+				const nat = m.tiles.find((t) => !isJoker(t.k));
+				const mine = nat && p.hand.find((t) => cls(t.k) === cls(nat.k));
+				if (mine) L.swaps!.push({ owner, meld: mi, tile: mine.id, kind: mine.k });
+			})
+		);
+	}
+	if (!v.american && !p.riichi && s.wall.length > v.reserve && totalKongs < 4) {
 		const seen = new Set<Kind>();
 		for (const t of p.hand) {
 			if (seen.has(t.k) || isJoker(t.k)) continue;
@@ -613,7 +637,7 @@ function resolveClaims(s: GameState) {
 	const pick =
 		order.find((seat) => {
 			const r = resp(seat);
-			return r && r !== 'pass' && (r.type === 'pung' || r.type === 'kong');
+			return r && r !== 'pass' && (r.type === 'pung' || r.type === 'kong' || r.type === 'quint');
 		}) ??
 		order.find((seat) => {
 			const r = resp(seat);
@@ -628,14 +652,16 @@ function resolveClaims(s: GameState) {
 	const last = fromP.discards[fromP.discards.length - 1];
 	if (last && last.tile.id === c.tile.id) last.taken = true;
 	const tiles = option.type === 'chow' ? sortTiles([...used, c.tile]) : [...used, c.tile];
-	p.melds.push({ type: option.type as 'chow' | 'pung' | 'kong', tiles, from: c.from, concealed: false, claimed: c.tile.id });
+	p.melds.push({ type: option.type as 'chow' | 'pung' | 'kong' | 'quint', tiles, from: c.from, concealed: false, claimed: c.tile.id });
 	breakIppatsu(s);
-	const verb = { chow: v.id === 'taiwanese' ? 'sheungs' : 'chows', pung: 'pongs', kong: 'gongs', win: '' }[option.type];
+	const verb = v.american
+		? { chow: '', pung: 'exposes a pung of', kong: 'exposes a kong of', quint: 'exposes a quint of', win: '' }[option.type]
+		: { chow: v.id === 'taiwanese' ? 'sheungs' : 'chows', pung: 'pongs', kong: 'gongs', quint: '', win: '' }[option.type];
 	log(s, pick, option.type, `${says(p, verb)} ${kindName(c.tile.k)}.`, c.tile);
 	s.turn = pick;
 	s.drawn = null;
 	p.noDiscard = v.riichi ? [c.tile.k] : [];
-	if (option.type === 'kong') return replacementDraw(s, pick);
+	if (option.type === 'kong' && !v.american) return replacementDraw(s, pick);
 	s.phase = 'turn';
 }
 
@@ -782,6 +808,19 @@ export function applyAction(state: GameState, seat: number, action: Action): Gam
 		case 'tsumo': {
 			if (!L.tsumo || !s.drawn) throw new Error('cannot win');
 			finishWin(s, [seat], s.drawn, null, false);
+			break;
+		}
+		case 'jokerSwap': {
+			const sw = L.swaps?.find((x) => x.owner === action.owner && x.meld === action.meld && x.tile === action.tile);
+			if (!sw) throw new Error('no joker to swap');
+			const p = s.players[seat];
+			const meld = s.players[action.owner].melds[action.meld];
+			const ji = meld.tiles.findIndex((t) => isJoker(t.k));
+			const [mine] = removeTiles(p, [action.tile]);
+			const joker = meld.tiles[ji];
+			meld.tiles = meld.tiles.map((t, i) => (i === ji ? mine : t));
+			p.hand.push(joker);
+			log(s, seat, 'swap', `${says(p, 'swaps')} ${kindName(mine.k)} for a joker${action.owner === seat ? '' : ` from ${s.players[action.owner].name}`}.`, mine);
 			break;
 		}
 		case 'kong': {

@@ -58,7 +58,7 @@
 	};
 	let charts = $state<Charts | null>(null);
 	const loadCharts = async () => (charts = await api<Charts>('/charts'));
-	const NAMES: Record<string, string> = { international: 'International', riichi: 'Riichi', taiwanese: 'Taiwanese', bombay: 'Bombay', unknown: 'Older hands' };
+	const NAMES: Record<string, string> = { international: 'International', riichi: 'Riichi', taiwanese: 'Taiwanese', bombay: 'Bombay', american: 'American', unknown: 'Older hands' };
 	const variantRows = $derived.by(() => {
 		if (!charts) return [];
 		const m = new Map<string, { solo: number; online: number }>();

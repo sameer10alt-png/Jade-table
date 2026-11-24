@@ -1,10 +1,10 @@
 import type { Kind, Tile } from './tiles';
 
-export type VariantId = 'taiwanese' | 'riichi' | 'bombay' | 'international';
+export type VariantId = 'taiwanese' | 'riichi' | 'bombay' | 'international' | 'american';
 export type BotLevel = 'beginner' | 'intermediate' | 'expert';
 
 export interface Meld {
-	type: 'chow' | 'pung' | 'kong';
+	type: 'chow' | 'pung' | 'kong' | 'quint';
 	tiles: Tile[];
 	/** seat the claimed tile came from; null for concealed kongs */
 	from: number | null;
@@ -39,7 +39,7 @@ export interface Player {
 	noDiscard: Kind[];
 }
 
-export type ClaimType = 'chow' | 'pung' | 'kong' | 'win';
+export type ClaimType = 'chow' | 'pung' | 'kong' | 'quint' | 'win';
 
 export interface ClaimOption {
 	type: ClaimType;
@@ -176,6 +176,8 @@ export type Action =
 	| { t: 'discard'; tile: number; riichi?: boolean }
 	| { t: 'tsumo' }
 	| { t: 'kong'; kind: Kind }
+	/** American: swap a tile from your hand for the joker in someone's exposed group */
+	| { t: 'jokerSwap'; owner: number; meld: number; tile: number }
 	| { t: 'claim'; option: ClaimOption }
 	| { t: 'pass' }
 	| { t: 'pass3'; tiles: number[] }

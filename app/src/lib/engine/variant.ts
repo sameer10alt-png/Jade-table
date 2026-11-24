@@ -66,6 +66,8 @@ export interface Variant {
 	startScore: number;
 	riichi: boolean;
 	goulash: boolean;
+	/** American Mahjong: flowers stay in the hand, Charleston every hand, jokers in groups of 3+, quints, joker swaps, no kong draws */
+	american?: boolean;
 	special?: SpecialShape;
 	/** variants whose wins are a list of named hands: can these tiles be declared? (melds included) */
 	complete?: (concealed: Tile[], melds: Meld[]) => boolean;
@@ -86,6 +88,6 @@ export interface Variant {
 	settleWin(state: GameState, wins: WinSettle[]): Settlement;
 	settleDraw(state: GameState): DrawSettlement;
 	/** the scoring table shown on the rules page */
-	scoringTable: { name: string; value: string; note?: string }[];
+	scoringTable: { name: string; value: string; note?: string; pattern?: string }[];
 	rulesSummary: string[];
 }
