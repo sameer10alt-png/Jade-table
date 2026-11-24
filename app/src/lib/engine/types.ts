@@ -84,8 +84,14 @@ export interface HandResult {
 }
 
 export interface PassState {
-	round: number; // 0 = right, 1 = across, 2 = left
+	/** goulash: 0 = right, 1 = across, 2 = left. Charleston: 0–5 = right, across, left, left, across, right */
+	round: number;
 	chosen: (number[] | null)[];
+	/** 'charleston' (any variant, when the table turns it on) or the Western goulash */
+	kind?: 'goulash' | 'charleston';
+	/** Charleston: passing, voting on a second Charleston, or the optional courtesy pass across */
+	stage?: 'pass' | 'vote' | 'courtesy';
+	votes?: (boolean | null)[];
 }
 
 /** Rolling for seats at the start of a game: the highest total sits East. Ties re-roll. */
@@ -122,6 +128,8 @@ export interface GameOptions {
 	seed: number;
 	/** roll dice for the first dealer (default true); false = pick the dealer at random */
 	diceSeating?: boolean;
+	/** pass tiles before each hand: right, across, left; an optional second Charleston; a courtesy pass */
+	charleston?: boolean;
 	/** online tables: who sits where (a null bot = a person). Offline: seat 0 is you, the rest are bots. */
 	seats?: { name: string; bot: BotLevel | null }[];
 }
@@ -171,5 +179,6 @@ export type Action =
 	| { t: 'claim'; option: ClaimOption }
 	| { t: 'pass' }
 	| { t: 'pass3'; tiles: number[] }
+	| { t: 'charlestonVote'; yes: boolean }
 	| { t: 'roll' }
 	| { t: 'next' };

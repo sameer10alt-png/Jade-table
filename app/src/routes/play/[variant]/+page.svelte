@@ -17,6 +17,7 @@
 	let rounds = $state(1);
 	let minimum = $state(true);
 	let redFives = $state(true);
+	let charleston = $state(false);
 	let blocking = $state(false);
 	/** signed in: run the game on the server so it can be continued on any device */
 	let toAccount = $state(true);
@@ -37,7 +38,7 @@
 			startError = '';
 			try {
 				const code = await createTable(
-					{ variant: data.variant as VariantId, rounds, botLevel: skill, minimum, redFives },
+					{ variant: data.variant as VariantId, rounds, botLevel: skill, minimum, redFives, charleston },
 					identity().id
 				);
 				goto(`/online/${code}?start=1`);
@@ -57,6 +58,7 @@
 			playerName: prefs.name.trim() || 'You',
 			minimum,
 			redFives,
+			charleston,
 			seed: Math.floor(Math.random() * 2 ** 31)
 		});
 		saveGame(game);
@@ -125,6 +127,10 @@
 					<span>Red fives (aka dora)</span>
 				</label>
 			{/if}
+			<label class="check">
+				<input type="checkbox" bind:checked={charleston} />
+				<span>Charleston (pass 3 tiles right, across, left before each hand; optional second Charleston and courtesy pass)</span>
+			</label>
 			<label class="check">
 				<input type="checkbox" bind:checked={prefs.hints} />
 				<span>Show hints (tiles to win, waits, suggested discard)</span>

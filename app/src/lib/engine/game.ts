@@ -205,7 +205,12 @@ function deal(s: GameState) {
 	s.afterKong = false;
 	s.firstGoAround = true;
 	log(s, null, 'deal', `${says(s.players[s.dealer], 'deals')}.`);
-	if (s.goulash) {
+	if (s.opts.charleston) {
+		s.phase = 'passing';
+		s.passing = { round: 0, chosen: [null, null, null, null], kind: 'charleston', stage: 'pass' };
+		s.drawn = null;
+		log(s, null, 'charleston', 'The Charleston: pass three tiles to the right.');
+	} else if (s.goulash) {
 		s.phase = 'passing';
 		s.passing = { round: 0, chosen: [null, null, null, null] };
 		s.drawn = null;
@@ -386,6 +391,10 @@ export interface Legal {
 	roll: boolean;
 	claimBlocked?: string;
 	pass3: boolean;
+	/** Charleston: vote on a second Charleston */
+	vote?: boolean;
+	/** Charleston courtesy pass: choose 0–3 tiles for the player across */
+	courtesy?: boolean;
 	next: boolean;
 }
 
@@ -406,7 +415,10 @@ export function legal(s: GameState, seat: number): Legal {
 		return L;
 	}
 	if (s.phase === 'passing') {
-		L.pass3 = !!s.passing && s.passing.chosen[seat] === null;
+		const ps = s.passing;
+		if (ps?.stage === 'vote') L.vote = ps.votes?.[seat] === null;
+		else L.pass3 = !!ps && ps.chosen[seat] === null;
+		if (L.pass3 && ps?.stage === 'courtesy') L.courtesy = true;
 		return L;
 	}
 	if (s.phase === 'claim' && s.claim) {
@@ -459,6 +471,7 @@ export function pendingSeats(s: GameState): number[] {
 	if (s.phase === 'wallbreak') return [s.dealer];
 	if (s.phase === 'turn') return [s.turn];
 	if (s.phase === 'claim' && s.claim) return [0, 1, 2, 3].filter((i) => s.claim!.options[i] && s.claim!.responses[i] === null);
+	if (s.phase === 'passing' && s.passing?.stage === 'vote') return [0, 1, 2, 3].filter((i) => s.passing!.votes?.[i] === null);
 	if (s.phase === 'passing' && s.passing) return [0, 1, 2, 3].filter((i) => s.passing!.chosen[i] === null);
 	return [];
 }
@@ -652,8 +665,72 @@ function doKong(s: GameState, seat: number, kind: Kind) {
 	completeAddedKong(s, seat, tile);
 }
 
+/** Charleston passes: right, across, left, then (if everyone agrees) left, across, right */
+const CHARLESTON = [1, 2, 3, 3, 2, 1];
+const DIR = (offset: number) => ['', 'right', 'across', 'left'][offset];
+
+function endPassing(s: GameState, text: string) {
+	s.passing = null;
+	s.phase = 'turn';
+	s.turn = s.dealer;
+	log(s, null, 'charleston', text);
+}
+
+function doCharleston(s: GameState, seat: number, ids: number[]) {
+	const ps = s.passing!;
+	const courtesy = ps.stage === 'courtesy';
+	if (new Set(ids).size !== ids.length || (courtesy ? ids.length > 3 : ids.length !== 3)) throw new Error(courtesy ? 'choose up to three tiles' : 'choose three tiles');
+	const p = s.players[seat];
+	if (ids.some((id) => { const t = p.hand.find((x) => x.id === id); return !t || isJoker(t.k); })) throw new Error('cannot pass that tile');
+	ps.chosen[seat] = ids;
+	if (ps.chosen.some((c) => c === null)) return;
+	if (courtesy) {
+		// players across agree on the smaller number and swap that many
+		let swapped = 0;
+		for (const [a, b] of [[0, 2], [1, 3]]) {
+			const n = Math.min(ps.chosen[a]!.length, ps.chosen[b]!.length);
+			if (!n) continue;
+			const ta = removeTiles(s.players[a], ps.chosen[a]!.slice(0, n));
+			const tb = removeTiles(s.players[b], ps.chosen[b]!.slice(0, n));
+			s.players[a].hand.push(...tb);
+			s.players[b].hand.push(...ta);
+			swapped += n;
+		}
+		endPassing(s, swapped ? 'Courtesy pass done. The dealer discards first.' : 'No courtesy pass. The dealer discards first.');
+		return;
+	}
+	const offset = CHARLESTON[ps.round];
+	const moving = ps.chosen.map((c, i) => removeTiles(s.players[i], c!));
+	moving.forEach((tiles, i) => s.players[(i + offset) % 4].hand.push(...tiles));
+	ps.round++;
+	ps.chosen = [null, null, null, null];
+	if (ps.round === 3) {
+		ps.stage = 'vote';
+		ps.votes = [null, null, null, null];
+		log(s, null, 'charleston', 'First Charleston done. Everyone votes: a second Charleston, or stop?');
+	} else if (ps.round >= 6) {
+		ps.stage = 'courtesy';
+		log(s, null, 'charleston', 'Second Charleston done. Courtesy pass: up to three tiles across (optional).');
+	} else log(s, null, 'charleston', `Now pass three tiles ${DIR(CHARLESTON[ps.round])}.`);
+}
+
+function doCharlestonVote(s: GameState, seat: number, yes: boolean) {
+	const ps = s.passing!;
+	ps.votes![seat] = yes;
+	log(s, seat, 'charleston', `${says(s.players[seat], yes ? 'wants' : 'does not want')} a second Charleston.`);
+	if (ps.votes!.some((v) => v === false)) {
+		ps.stage = 'courtesy';
+		ps.chosen = [null, null, null, null];
+		log(s, null, 'charleston', 'No second Charleston. Courtesy pass: up to three tiles across (optional).');
+	} else if (ps.votes!.every((v) => v === true)) {
+		ps.stage = 'pass';
+		log(s, null, 'charleston', 'Second Charleston: pass three tiles to the left.');
+	}
+}
+
 function doPass3(s: GameState, seat: number, ids: number[]) {
 	const ps = s.passing!;
+	if (ps.kind === 'charleston') return doCharleston(s, seat, ids);
 	if (ids.length !== 3 || new Set(ids).size !== 3) throw new Error('choose three tiles');
 	const p = s.players[seat];
 	if (ids.some((id) => { const t = p.hand.find((x) => x.id === id); return !t || isJoker(t.k); })) throw new Error('cannot pass that tile');
@@ -735,6 +812,11 @@ export function applyAction(state: GameState, seat: number, action: Action): Gam
 		case 'pass3': {
 			if (!L.pass3) throw new Error('not passing now');
 			doPass3(s, seat, action.tiles);
+			break;
+		}
+		case 'charlestonVote': {
+			if (!L.vote) throw new Error('not voting now');
+			doCharlestonVote(s, seat, !!action.yes);
 			break;
 		}
 		case 'roll': {

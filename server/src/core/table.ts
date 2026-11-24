@@ -100,7 +100,8 @@ export function cleanSettings(raw: Partial<TableSettings> | undefined): TableSet
 		rounds: [1, 2, 4].includes(Number(raw.rounds)) ? Number(raw.rounds) : 1,
 		botLevel: raw.botLevel === 'mixed' || LEVELS.includes(raw.botLevel as BotLevel) ? (raw.botLevel as BotLevel | 'mixed') : 'intermediate',
 		minimum: raw.minimum !== false,
-		redFives: raw.redFives !== false
+		redFives: raw.redFives !== false,
+		charleston: raw.charleston === true
 	};
 }
 
@@ -299,6 +300,7 @@ export class TableCore {
 			playerName: '',
 			minimum: r.settings.minimum,
 			redFives: r.settings.redFives,
+			charleston: !!r.settings.charleston,
 			seed: (Math.random() * 2 ** 31) | 0,
 			seats
 		});

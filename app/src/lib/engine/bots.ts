@@ -366,7 +366,7 @@ function decidePass(s: GameState, seat: number, level: BotLevel): Action {
 export function botAction(s: GameState, seat: number): Action {
 	const level = s.players[seat].bot ?? 'intermediate';
 	if (s.phase === 'seating' || s.phase === 'wallbreak') return { t: 'roll' };
-	if (s.phase === 'passing') return decidePass(s, seat, level);
+	if (s.phase === 'passing') return s.passing?.stage === 'vote' ? { t: 'charlestonVote', yes: true } : decidePass(s, seat, level);
 	if (s.phase === 'claim') return decideClaim(s, seat, level);
 	if (s.phase === 'turn') return decideTurn(s, seat, level);
 	return { t: 'next' };
@@ -384,6 +384,6 @@ export function suggestDiscard(s: GameState, seat: number): number | null {
 export function botActionAt(s: GameState, seat: number, level: BotLevel): Action {
 	if (s.phase === 'claim') return decideClaim(s, seat, level);
 	if (s.phase === 'turn') return decideTurn(s, seat, level);
-	if (s.phase === 'passing') return decidePass(s, seat, level);
+	if (s.phase === 'passing') return s.passing?.stage === 'vote' ? { t: 'charlestonVote', yes: true } : decidePass(s, seat, level);
 	return { t: 'next' };
 }
