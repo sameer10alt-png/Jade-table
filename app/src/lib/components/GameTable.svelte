@@ -16,6 +16,7 @@
 	import type { Action, ClaimOption, GameState } from '#lib/engine/types.ts';
 	import type { SeatFriend } from '#lib/online/friends.svelte.ts';
 	import { refreshRewards } from '#lib/rewards.svelte.ts';
+	import { handLabel, nearest as nearestCard } from '#lib/engine/variants/american.ts';
 
 	let {
 		game,
@@ -178,7 +179,8 @@
 		if (myTurn && suggestion === null) return null;
 		const sh = v.distance ? v.distance(base, me.melds, (ME - game.dealer + 4) % 4).missing - 1 : shantenOf(base, me.melds.length, v.sets, v.shantenSpecials).shanten;
 		const waits = sh === 0 || v.complete ? winningKinds(base, me.melds.length, v.sets, v.special, v.complete ? (x) => v.complete!(x, me.melds) : undefined) : [];
-		return { suggestion, sh, waits };
+		const aim = v.american ? nearestCard(base, me.melds, 1)[0] : null;
+		return { suggestion, sh, waits, aim: aim ? `${handLabel(aim.hand)}: ${aim.hand.pattern.replace(/:[abc]/g, '')}` : null };
 	});
 
 	// reset local UI state when it is no longer relevant
@@ -226,8 +228,9 @@
 	const fmt = (n: number) => (v?.riichi ? n.toLocaleString() : n > 0 ? `+${n}` : String(n));
 	const claimWord = (o: ClaimOption) => {
 		if (o.type === 'win') return v?.riichi ? 'Ron' : 'Mahjong';
-		if (o.type === 'pung') return v?.riichi ? 'Pon' : v?.id === 'international' ? 'Pung' : 'Pong';
-		if (o.type === 'kong') return v?.riichi ? 'Kan' : v?.id === 'international' ? 'Kong' : 'Gong';
+		if (o.type === 'pung') return v?.riichi ? 'Pon' : v?.id === 'international' || v?.american ? 'Pung' : 'Pong';
+		if (o.type === 'kong') return v?.riichi ? 'Kan' : v?.id === 'international' || v?.american ? 'Kong' : 'Gong';
+		if (o.type === 'quint') return 'Quint';
 		return v?.riichi ? 'Chii' : v?.id === 'taiwanese' ? 'Sheung' : 'Chow';
 	};
 	const tileOf = (id: number) => me?.hand.find((t) => t.id === id);
@@ -370,6 +373,7 @@
 						{:else}
 							{hint.sh} {hint.sh === 1 ? 'tile' : 'tiles'} from ready
 						{/if}
+						{#if hint.aim}<span class="aim">· closest: {hint.aim}</span>{/if}
 					</span>
 				{/if}
 			</div>
@@ -444,6 +448,11 @@
 					{/if}
 					{#each L.kongs as k (k)}
 						<button class="btn dark" onclick={() => send({ t: 'kong', kind: k })}>{v.riichi ? 'Kan' : 'Gong'} <Tile tile={{ id: -3, k }} size="xs" /></button>
+					{/each}
+					{#each L.swaps ?? [] as sw (sw.owner + ':' + sw.meld)}
+						<button class="btn dark" title="Swap your tile for the joker in {game.players[sw.owner].name}'s group" onclick={() => send({ t: 'jokerSwap', owner: sw.owner, meld: sw.meld, tile: sw.tile })}>
+							Swap <Tile tile={{ id: -4, k: sw.kind }} size="xs" /> for <Tile tile={{ id: -5, k: 'jk' }} size="xs" />
+						</button>
 					{/each}
 					{#if L.riichi.length && !me.riichi}
 						<button class="btn" class:primary={riichiMode} onclick={() => { riichiMode = !riichiMode; selected = null; }}>

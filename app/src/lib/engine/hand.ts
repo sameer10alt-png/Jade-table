@@ -23,7 +23,7 @@ export function meldGroup(m: Meld): ScoreGroup {
 	const natural = m.tiles.filter((t) => !isJoker(t.k));
 	const kinds = natural.map((t) => KIND_INDEX[t.k]).sort((a, b) => a - b);
 	return {
-		type: m.type,
+		type: m.type === 'quint' ? 'kong' : m.type,
 		i: kinds.length ? kinds[0] : -1,
 		open: !m.concealed,
 		concealedKong: m.type === 'kong' && m.concealed,

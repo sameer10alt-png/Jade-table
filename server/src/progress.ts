@@ -259,7 +259,7 @@ export async function handleProgress(req: IncomingMessage, res: ServerResponse, 
 			}))
 		];
 		const delta = handDeltas(seats, K_BOTS)[0];
-		const variant = ['riichi', 'taiwanese', 'bombay', 'international'].includes(String(b.variant)) ? String(b.variant) : null;
+		const variant = ['riichi', 'taiwanese', 'bombay', 'international', 'american'].includes(String(b.variant)) ? String(b.variant) : null;
 		const r = await applyHand(user.id, outcome, delta, 'bots', `offline:${key}`, variant);
 		send(res, 200, r ? { ...r, rank: rankFor(r.after).name } : { duplicate: true });
 		return true;

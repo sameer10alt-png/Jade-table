@@ -14,6 +14,7 @@
 	import type { GameState } from '#lib/engine/types.ts';
 
 	const cards = [
+		{ id: 'american', sample: ['jk', 'f1', 'b2', 'dw'] },
 		{ id: 'taiwanese', sample: ['dr', 'dr', 'dr', 'f2'] },
 		{ id: 'riichi', sample: ['p5', 'p5', 'c5', 'ww'] },
 		{ id: 'bombay', sample: ['jk', 'dg', 'dg', 's3'] },
@@ -149,7 +150,7 @@
 				<p>{v.tagline}</p>
 				<div class="gos">
 					<span class="go">Play →</span>
-					<a class="charl" href="/play/{c.id}?charleston=1">With Charleston</a>
+					{#if c.id !== 'american'}<a class="charl" href="/play/{c.id}?charleston=1">With Charleston</a>{/if}
 				</div>
 			</div>
 		{/each}
@@ -270,7 +271,7 @@
 	}
 	.games {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
 		gap: 16px;
 	}
 	.game {

@@ -46,7 +46,7 @@
 		<table>
 			<tbody>
 				{#each v.scoringTable as row}
-					<tr><td>{row.name}{#if row.note}<br /><small class="note">{row.note}</small>{/if}</td><td class="val">{row.value}</td></tr>
+					<tr><td>{row.name}{#if row.pattern}<span class="pat">{#each row.pattern.split(' ') as tok, i (i)}{@const [chars, suit] = tok.split(':')}<b class="s-{suit ?? 'x'}">{chars}</b>{' '}{/each}</span>{/if}{#if row.note}<small class="note">{row.note}</small>{/if}</td><td class="val">{row.value}</td></tr>
 				{/each}
 			</tbody>
 		</table>
@@ -71,7 +71,30 @@
 </main>
 
 <style>
+	.pat {
+		display: block;
+		font-family: ui-monospace, Menlo, monospace;
+		font-size: 1.05rem;
+		letter-spacing: 0.04em;
+		margin-top: 2px;
+	}
+	.pat b {
+		font-weight: 700;
+	}
+	.s-a {
+		color: #2a5cb8;
+	}
+	.s-b {
+		color: #c0392b;
+	}
+	.s-c {
+		color: #1e8a4c;
+	}
+	.s-x {
+		color: var(--ink);
+	}
 	.note {
+		display: block;
 		color: var(--ink-2);
 		font-size: 0.8rem;
 	}

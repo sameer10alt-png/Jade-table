@@ -127,10 +127,12 @@
 					<span>Red fives (aka dora)</span>
 				</label>
 			{/if}
+			{#if data.variant !== 'american'}
 			<label class="check">
 				<input type="checkbox" bind:checked={charleston} />
 				<span>Charleston (pass 3 tiles right, across, left before each hand; optional second Charleston and courtesy pass)</span>
 			</label>
+			{/if}
 			<label class="check">
 				<input type="checkbox" bind:checked={prefs.hints} />
 				<span>Show hints (tiles to win, waits, suggested discard)</span>

@@ -60,7 +60,7 @@ function bookClaim(s: GameState, seat: number, level: BotLevel): Action {
 		const rest = p.hand.filter((t) => !option.use.includes(t.id));
 		// after a pung we still discard one tile: take the best case
 		let after = 99;
-		if (option.type === 'kong') after = v.distance!(rest, [...p.melds, meld], wind).missing;
+		if (option.type === 'kong' && !v.american) after = v.distance!(rest, [...p.melds, meld], wind).missing;
 		else if (v.discardDistances) for (const d of v.discardDistances(rest, [...p.melds, meld], wind).values()) after = Math.min(after, d.missing);
 		else for (const d of rest) after = Math.min(after, v.distance!(rest.filter((x) => x.id !== d.id), [...p.melds, meld], wind).missing);
 		if (after < before) return { t: 'claim', option };
@@ -332,6 +332,11 @@ function decideTurn(s: GameState, seat: number, level: BotLevel): Action {
 	const L = legal(s, seat);
 	if (L.tsumo) return { t: 'tsumo' };
 	const p = s.players[seat];
+	// American: a joker is always worth more than the tile it stands for
+	if (level !== 'beginner' && L.swaps?.length) {
+		const sw = L.swaps[0];
+		return { t: 'jokerSwap', owner: sw.owner, meld: sw.meld, tile: sw.tile };
+	}
 	if (level !== 'beginner' && L.kongs.length && !variantOf(s).distance) {
 		const before = shanten(s, p.hand, p.melds.length);
 		for (const k of L.kongs) {

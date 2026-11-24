@@ -5,10 +5,12 @@
 	<url><loc>https://pungtable.com/play/taiwanese</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
 	<url><loc>https://pungtable.com/play/bombay</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
 	<url><loc>https://pungtable.com/play/international</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+	<url><loc>https://pungtable.com/play/american</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
 	<url><loc>https://pungtable.com/rules/riichi</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
 	<url><loc>https://pungtable.com/rules/taiwanese</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
 	<url><loc>https://pungtable.com/rules/bombay</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
 	<url><loc>https://pungtable.com/rules/international</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+	<url><loc>https://pungtable.com/rules/american</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
 	<url><loc>https://pungtable.com/practice</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
 	<url><loc>https://pungtable.com/ask</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
 	<url><loc>https://pungtable.com/quick/riichi</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>

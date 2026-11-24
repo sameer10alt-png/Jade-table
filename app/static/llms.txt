@@ -7,6 +7,7 @@
 - Taiwanese 16-tile mahjong: https://pungtable.com/rules/taiwanese
 - Bombay mahjong (Indian style, with jokers): https://pungtable.com/rules/bombay
 - International mahjong (the Australian club game with named special hands): https://pungtable.com/rules/international
+- American mahjong (National Mah Jongg League style: Charleston, jokers, a card of hands; Pung Table's own card): https://pungtable.com/rules/american
 
 ## Features
 - Quick match: join a table in seconds (https://pungtable.com/quick/riichi)
