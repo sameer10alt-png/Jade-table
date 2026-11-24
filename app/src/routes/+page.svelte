@@ -148,10 +148,7 @@
 				</div>
 				<h2><a class="main" href="/play/{c.id}">{v.name}</a></h2>
 				<p>{v.tagline}</p>
-				<div class="gos">
-					<span class="go">Play →</span>
-					{#if c.id !== 'american'}<a class="charl" href="/play/{c.id}?charleston=1">With Charleston</a>{/if}
-				</div>
+				<span class="go">Play →</span>
 			</div>
 		{/each}
 	</section>
@@ -302,28 +299,6 @@
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
-	}
-	.gos {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 10px;
-		flex-wrap: wrap;
-	}
-	.charl {
-		position: relative;
-		z-index: 1;
-		margin-top: 14px;
-		padding: 6px 12px;
-		border-radius: 999px;
-		border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
-		color: var(--accent);
-		font-size: 0.85rem;
-		font-weight: 700;
-		text-decoration: none;
-	}
-	.charl:hover {
-		background: color-mix(in srgb, var(--accent) 18%, transparent);
 	}
 	.tiles {
 		display: flex;
