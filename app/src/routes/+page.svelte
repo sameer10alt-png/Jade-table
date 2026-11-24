@@ -139,16 +139,19 @@
 	<section class="games" id="games">
 		{#each cards as c (c.id)}
 			{@const v = VARIANTS[c.id]}
-			<a class="game" href="/play/{c.id}">
+			<div class="game">
 				<div class="tiles">
 					{#each c.sample as k, i (i)}
 						<Tile tile={{ id: i, k, red: c.id === 'riichi' && k === 'p5' && i === 0 }} size="md" />
 					{/each}
 				</div>
-				<h2>{v.name}</h2>
+				<h2><a class="main" href="/play/{c.id}">{v.name}</a></h2>
 				<p>{v.tagline}</p>
-				<span class="go">Play →</span>
-			</a>
+				<div class="gos">
+					<span class="go">Play →</span>
+					<a class="charl" href="/play/{c.id}?charleston=1">With Charleston</a>
+				</div>
+			</div>
 		{/each}
 	</section>
 
@@ -282,8 +285,44 @@
 		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
 		transition: transform 150ms;
 	}
+	.game {
+		position: relative;
+	}
 	.game:hover {
 		transform: translateY(-4px);
+	}
+	/* the whole card opens the game; the Charleston link sits on top */
+	.game .main {
+		color: inherit;
+		text-decoration: none;
+	}
+	.game .main::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+	}
+	.gos {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		flex-wrap: wrap;
+	}
+	.charl {
+		position: relative;
+		z-index: 1;
+		margin-top: 14px;
+		padding: 6px 12px;
+		border-radius: 999px;
+		border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+		color: var(--accent);
+		font-size: 0.85rem;
+		font-weight: 700;
+		text-decoration: none;
+	}
+	.charl:hover {
+		background: color-mix(in srgb, var(--accent) 18%, transparent);
 	}
 	.tiles {
 		display: flex;
